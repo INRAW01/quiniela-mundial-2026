@@ -82,7 +82,7 @@
             return <i ref={ref} data-lucide={name}></i>;
         };
 
-        // NORMALIZADOR PARA MATCH PERFECTO (Evita errores por mayúsculas y tildes)
+        // NORMALIZADOR PARA MATCH PERFECTO
         const normalizeName = (str) => {
             if(!str) return "";
             return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -128,18 +128,22 @@
             React.useEffect(() => {
                 const savedUid = localStorage.getItem('quiniela_user_uid');
                 auth.onAuthStateChanged(async (u) => {
-                    if (u) {
+                    // Priorizamos el ID guardado para permitir múltiples dispositivos
+                    if (savedUid) {
+                        try {
+                            const doc = await db.collection('usuarios').doc(savedUid).get();
+                            if (doc.exists) { 
+                                setProfile({ id: savedUid, ...doc.data() }); 
+                                setUser({ uid: savedUid }); 
+                            }
+                        } catch(e) {}
+                    } else if (u) {
                         const doc = await db.collection('usuarios').doc(u.uid).get();
                         if (doc.exists) {
                             setProfile({ id: u.uid, ...doc.data() });
                             setUser(u);
                             localStorage.setItem('quiniela_user_uid', u.uid);
                         }
-                    } else if (savedUid) {
-                        try {
-                            const doc = await db.collection('usuarios').doc(savedUid).get();
-                            if (doc.exists) { setProfile({ id: savedUid, ...doc.data() }); setUser({ uid: savedUid }); }
-                        } catch(e) {}
                     }
                     setIsLoading(false);
                 });
@@ -156,33 +160,53 @@
                     const data = {};
                     snap.forEach(d => data[d.id] = { id: d.id, ...d.data() });
                     setPredicciones(data);
+                    // Actualiza el perfil del usuario actual en tiempo real
                     if (data[user.uid]) setProfile(data[user.uid]);
                 });
                 return () => { unsubPartidos(); unsubPreds(); };
             }, [user]);
 
+            // SISTEMA DE LOGIN Y CUENTA ÚNICA PERFECCIONADO
             const handleLogin = async (e) => {
                 e.preventDefault();
-                if (!username.trim()) return;
+                const inputName = username.trim();
+                if (!inputName) return;
                 setIsLoading(true);
+                
                 try {
-                    const snapshot = await db.collection('usuarios').where('username', '==', username.trim()).get();
+                    // Asegurar conexión de Firebase Auth
+                    if (!auth.currentUser) await auth.signInAnonymously();
+
+                    // Búsqueda inteligente: Ignora mayúsculas/minúsculas para encontrar la cuenta única
+                    const allUsersSnap = await db.collection('usuarios').get();
+                    const existingUser = allUsersSnap.docs.find(doc => doc.data().username.toLowerCase() === inputName.toLowerCase());
+                    
                     let currentUserUid;
-                    if (!snapshot.empty) {
-                        currentUserUid = snapshot.docs[0].id;
-                        setUser({ uid: currentUserUid });
+
+                    if (existingUser) {
+                        // RECONEXIÓN: Si el nombre existe, vinculamos este dispositivo a esa cuenta
+                        currentUserUid = existingUser.id;
                     } else {
-                        const cred = await auth.signInAnonymously();
-                        currentUserUid = cred.user.uid;
+                        // CUENTA NUEVA: Solo si el nombre no existe en absoluto
+                        currentUserUid = auth.currentUser.uid;
                         await db.collection('usuarios').doc(currentUserUid).set({
-                            username: username.trim(), picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            username: inputName, 
+                            picks: {}, 
+                            puntos: 0, 
+                            locked: false, 
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
-                        setUser(cred.user);
                     }
+
+                    // Establecer conexión local
+                    setUser({ uid: currentUserUid });
                     localStorage.setItem('quiniela_user_uid', currentUserUid);
+                    
+                    // Cargar perfil
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
                     
+                    // Transición suave
                     setIsLoginExiting(true); 
                     setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
 
@@ -556,7 +580,9 @@
                                 <div className="panini-gradient p-8 rounded-3xl shadow-xl text-center relative mb-8 border border-[#C5A97D]/50">
                                     <h2 className="font-display font-black text-4xl mb-2 text-white drop-shadow-lg uppercase tracking-tight">Ranking Oficial</h2>
                                     <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo quinielas bloqueadas participan</p>
-                                    <button onClick={() => { if(prompt("Contraseña:")==="26zorras27") setShowAdminModal(true); }} className="absolute top-4 right-4 bg-black/40 hover:bg-black/70 text-white/90 border border-[#C5A97D]/30 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all backdrop-blur-sm">⚙️ ADMIN</button>
+                                    
+                                    {/* BOTÓN ADMIN RESPONSIVO CORREGIDO */}
+                                    <button onClick={() => { if(prompt("Contraseña:")==="26zorras27") setShowAdminModal(true); }} className="absolute top-3 right-3 md:top-4 md:right-4 bg-black/40 hover:bg-black/70 text-white/90 border border-[#C5A97D]/30 px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black tracking-widest transition-all backdrop-blur-sm z-10">⚙️ ADMIN</button>
                                 </div>
                                 
                                 {!profile.locked && (
