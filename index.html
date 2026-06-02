@@ -57,8 +57,21 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // BANDERAS BASE (Se irán sumando según el sorteo)
-        const BANDERAS = { 'México': '🇲🇽', 'Canadá': '🇨🇦', 'Estados Unidos': '🇺🇸' };
+        // 48 BANDERAS OFICIALES CONFIRMADAS
+        const BANDERAS = {
+            'México': '🇲🇽', 'Sudáfrica': '🇿🇦', 'Corea del Sur': '🇰🇷', 'República Checa': '🇨🇿',
+            'Canadá': '🇨🇦', 'Bosnia y Herzegovina': '🇧🇦', 'Catar': '🇶🇦', 'Suiza': '🇨🇭',
+            'Brasil': '🇧🇷', 'Marruecos': '🇲🇦', 'Haití': '🇭🇹', 'Escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+            'Estados Unidos': '🇺🇸', 'Paraguay': '🇵🇾', 'Australia': '🇦🇺', 'Turquía': '🇹🇷',
+            'Alemania': '🇩🇪', 'Curazao': '🇨🇼', 'Costa de Marfil': '🇨🇮', 'Ecuador': '🇪🇨',
+            'Países Bajos': '🇳🇱', 'Japón': '🇯🇵', 'Túnez': '🇹🇳', 'Suecia': '🇸🇪',
+            'Bélgica': '🇧🇪', 'Egipto': '🇪🇬', 'Irán': '🇮🇷', 'Nueva Zelanda': '🇳🇿',
+            'España': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arabia Saudita': '🇸🇦', 'Uruguay': '🇺🇾',
+            'Francia': '🇫🇷', 'Senegal': '🇸🇳', 'Noruega': '🇳🇴', 'Irak': '🇮🇶',
+            'Argentina': '🇦🇷', 'Argelia': '🇩🇿', 'Austria': '🇦🇹', 'Jordania': '🇯🇴',
+            'Portugal': '🇵🇹', 'Uzbekistán': '🇺🇿', 'Colombia': '🇨🇴', 'RD Congo': '🇨🇩',
+            'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croacia': '🇭🇷', 'Ghana': '🇬🇭', 'Panamá': '🇵🇦'
+        };
         const getBandera = (pais) => BANDERAS[pais] || '🏳️';
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -69,28 +82,26 @@
             return <i ref={ref} data-lucide={name}></i>;
         };
 
-        // NORMALIZADOR DE TEXTO PARA LA API (MATCH PERFECTO)
+        // NORMALIZADOR PARA MATCH PERFECTO (Evita errores por mayúsculas y tildes)
         const normalizeName = (str) => {
             if(!str) return "";
             return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
-        // TRADUCTOR DE API (Inglés -> Español) para que la base de datos entienda a la API de Football
+        // DICCIONARIO INGLÉS -> ESPAÑOL PARA LA API
         const TRADUCTOR_API = {
-            "usa": "estados unidos",
-            "united states": "estados unidos",
-            "mexico": "mexico",
-            "canada": "canada",
-            "spain": "españa",
-            "germany": "alemania",
-            "england": "inglaterra",
-            "brazil": "brasil",
-            "france": "francia",
-            "netherlands": "paises bajos",
-            "italy": "italia",
-            "south korea": "corea del sur",
-            "japan": "japon"
-            // Nota: Aquí se agregarán los nombres de los clasificados finales en 2025.
+            "usa": "estados unidos", "united states": "estados unidos",
+            "south africa": "sudafrica", "south korea": "corea del sur", "korea republic": "corea del sur",
+            "czechia": "republica checa", "czech republic": "republica checa", "bosnia and herzegovina": "bosnia y herzegovina",
+            "qatar": "catar", "switzerland": "suiza", "brazil": "brasil",
+            "morocco": "marruecos", "scotland": "escocia", "turkiye": "turquia", "turkey": "turquia",
+            "germany": "alemania", "cote d'ivoire": "costa de marfil", "ivory coast": "costa de marfil",
+            "netherlands": "paises bajos", "japan": "japon", "tunisia": "tunez", "sweden": "suecia",
+            "belgium": "belgica", "egypt": "egipto", "ir iran": "iran", "iran": "iran",
+            "new zealand": "nueva zelanda", "spain": "espana", "cape verde": "cabo verde",
+            "saudi arabia": "arabia saudita", "france": "francia", "norway": "noruega",
+            "iraq": "irak", "algeria": "argelia", "jordan": "jordania", "uzbekistan": "uzbekistan",
+            "congo dr": "rd congo", "dr congo": "rd congo", "england": "inglaterra", "croatia": "croacia"
         };
 
         const traducirNombre = (nombreIngles) => {
@@ -173,10 +184,7 @@
                     setProfile({ id: currentUserUid, ...doc.data() });
                     
                     setIsLoginExiting(true); 
-                    setTimeout(() => {
-                        setIsLoginExiting(false);
-                        setIsLoading(false);
-                    }, 500);
+                    setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
 
                 } catch (error) {
                     alert("Error de conexión."); setIsLoading(false);
@@ -192,7 +200,7 @@
 
             const handleBloquearQuiniela = async () => {
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial? No podrás hacer cambios.`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial? No podrás hacer más cambios.`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
                     alert("¡Quiniela Bloqueada Exitosamente!");
@@ -200,84 +208,120 @@
             };
 
             // ==========================================
-            // 3. PANEL ADMIN & GENERADOR EXACTO FIFA 2026
+            // 3. PANEL DE ADMINISTRADOR & GENERADOR
             // ==========================================
             const cargarPartidosBase = async () => {
-                // ESTRUCTURA OFICIAL FIFA 2026 (12 Grupos, 72 Partidos)
-                const gruposData = {
-                    'Grupo A': ['México', 'Equipo A2', 'Equipo A3', 'Equipo A4'],
-                    'Grupo B': ['Canadá', 'Equipo B2', 'Equipo B3', 'Equipo B4'],
-                    'Grupo C': ['Equipo C1', 'Equipo C2', 'Equipo C3', 'Equipo C4'],
-                    'Grupo D': ['Estados Unidos', 'Equipo D2', 'Equipo D3', 'Equipo D4'],
-                    'Grupo E': ['Equipo E1', 'Equipo E2', 'Equipo E3', 'Equipo E4'],
-                    'Grupo F': ['Equipo F1', 'Equipo F2', 'Equipo F3', 'Equipo F4'],
-                    'Grupo G': ['Equipo G1', 'Equipo G2', 'Equipo G3', 'Equipo G4'],
-                    'Grupo H': ['Equipo H1', 'Equipo H2', 'Equipo H3', 'Equipo H4'],
-                    'Grupo I': ['Equipo I1', 'Equipo I2', 'Equipo I3', 'Equipo I4'],
-                    'Grupo J': ['Equipo J1', 'Equipo J2', 'Equipo J3', 'Equipo J4'],
-                    'Grupo K': ['Equipo K1', 'Equipo K2', 'Equipo K3', 'Equipo K4'],
-                    'Grupo L': ['Equipo L1', 'Equipo L2', 'Equipo L3', 'Equipo L4']
-                };
-                
-                let ordenGlobal = 1;
+                // BASE DE DATOS EXACTA Y OFICIAL FIFA 2026 (72 Partidos)
+                const PARTIDOS_OFICIALES = [
+                    // JORNADA 1
+                    { g: 'Grupo A', l: 'México', v: 'Sudáfrica', f: '11 Jun 2026', h: '13:00', s: 'Estadio Azteca, CDMX' },
+                    { g: 'Grupo A', l: 'Corea del Sur', v: 'República Checa', f: '11 Jun 2026', h: '20:00', s: 'Estadio Akron, GDL' },
+                    { g: 'Grupo B', l: 'Canadá', v: 'Bosnia y Herzegovina', f: '12 Jun 2026', h: '13:00', s: 'BMO Field, Toronto' },
+                    { g: 'Grupo D', l: 'Estados Unidos', v: 'Paraguay', f: '12 Jun 2026', h: '19:00', s: 'SoFi Stadium, LA' },
+                    { g: 'Grupo B', l: 'Catar', v: 'Suiza', f: '13 Jun 2026', h: '13:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo C', l: 'Brasil', v: 'Marruecos', f: '13 Jun 2026', h: '16:00', s: 'MetLife Stadium, NY/NJ' },
+                    { g: 'Grupo C', l: 'Haití', v: 'Escocia', f: '13 Jun 2026', h: '19:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo D', l: 'Australia', v: 'Turquía', f: '13 Jun 2026', h: '22:00', s: 'BC Place, Vancouver' },
+                    { g: 'Grupo E', l: 'Alemania', v: 'Curazao', f: '14 Jun 2026', h: '11:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo F', l: 'Países Bajos', v: 'Japón', f: '14 Jun 2026', h: '14:00', s: 'AT&T Stadium, Dallas' },
+                    { g: 'Grupo E', l: 'Costa de Marfil', v: 'Ecuador', f: '14 Jun 2026', h: '17:00', s: 'Lincoln Financial, Philadelphia' },
+                    { g: 'Grupo F', l: 'Suecia', v: 'Túnez', f: '14 Jun 2026', h: '20:00', s: 'Estadio BBVA, Monterrey' },
+                    { g: 'Grupo H', l: 'España', v: 'Cabo Verde', f: '15 Jun 2026', h: '10:00', s: 'Mercedes-Benz, Atlanta' },
+                    { g: 'Grupo G', l: 'Bélgica', v: 'Egipto', f: '15 Jun 2026', h: '13:00', s: 'Lumen Field, Seattle' },
+                    { g: 'Grupo H', l: 'Arabia Saudita', v: 'Uruguay', f: '15 Jun 2026', h: '16:00', s: 'Hard Rock, Miami' },
+                    { g: 'Grupo G', l: 'Irán', v: 'Nueva Zelanda', f: '15 Jun 2026', h: '19:00', s: 'SoFi Stadium, LA' },
+                    { g: 'Grupo I', l: 'Francia', v: 'Senegal', f: '16 Jun 2026', h: '13:00', s: 'MetLife Stadium, NY/NJ' },
+                    { g: 'Grupo I', l: 'Irak', v: 'Noruega', f: '16 Jun 2026', h: '16:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo J', l: 'Argentina', v: 'Argelia', f: '16 Jun 2026', h: '19:00', s: 'Arrowhead Stadium, KC' },
+                    { g: 'Grupo J', l: 'Austria', v: 'Jordania', f: '16 Jun 2026', h: '22:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo K', l: 'Portugal', v: 'RD Congo', f: '17 Jun 2026', h: '11:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo L', l: 'Inglaterra', v: 'Croacia', f: '17 Jun 2026', h: '14:00', s: 'AT&T Stadium, Dallas' },
+                    { g: 'Grupo L', l: 'Ghana', v: 'Panamá', f: '17 Jun 2026', h: '17:00', s: 'BMO Field, Toronto' },
+                    { g: 'Grupo K', l: 'Uzbekistán', v: 'Colombia', f: '17 Jun 2026', h: '20:00', s: 'Estadio Azteca, CDMX' },
+
+                    // JORNADA 2
+                    { g: 'Grupo A', l: 'República Checa', v: 'Sudáfrica', f: '18 Jun 2026', h: '10:00', s: 'Mercedes-Benz, Atlanta' },
+                    { g: 'Grupo B', l: 'Suiza', v: 'Bosnia y Herzegovina', f: '18 Jun 2026', h: '13:00', s: 'SoFi Stadium, LA' },
+                    { g: 'Grupo B', l: 'Canadá', v: 'Catar', f: '18 Jun 2026', h: '16:00', s: 'BC Place, Vancouver' },
+                    { g: 'Grupo A', l: 'México', v: 'Corea del Sur', f: '18 Jun 2026', h: '19:00', s: 'Estadio Akron, GDL' },
+                    { g: 'Grupo D', l: 'Estados Unidos', v: 'Australia', f: '19 Jun 2026', h: '13:00', s: 'Lumen Field, Seattle' },
+                    { g: 'Grupo C', l: 'Escocia', v: 'Marruecos', f: '19 Jun 2026', h: '16:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo C', l: 'Brasil', v: 'Haití', f: '19 Jun 2026', h: '18:30', s: 'Lincoln Financial, Philadelphia' },
+                    { g: 'Grupo D', l: 'Turquía', v: 'Paraguay', f: '19 Jun 2026', h: '21:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo F', l: 'Países Bajos', v: 'Suecia', f: '20 Jun 2026', h: '11:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo E', l: 'Alemania', v: 'Costa de Marfil', f: '20 Jun 2026', h: '14:00', s: 'BMO Field, Toronto' },
+                    { g: 'Grupo E', l: 'Ecuador', v: 'Curazao', f: '20 Jun 2026', h: '18:00', s: 'Arrowhead Stadium, KC' },
+                    { g: 'Grupo F', l: 'Túnez', v: 'Japón', f: '20 Jun 2026', h: '22:00', s: 'Estadio BBVA, Monterrey' },
+                    { g: 'Grupo H', l: 'España', v: 'Arabia Saudita', f: '21 Jun 2026', h: '10:00', s: 'Mercedes-Benz, Atlanta' },
+                    { g: 'Grupo G', l: 'Bélgica', v: 'Irán', f: '21 Jun 2026', h: '13:00', s: 'SoFi Stadium, LA' },
+                    { g: 'Grupo H', l: 'Uruguay', v: 'Cabo Verde', f: '21 Jun 2026', h: '16:00', s: 'Hard Rock, Miami' },
+                    { g: 'Grupo G', l: 'Nueva Zelanda', v: 'Egipto', f: '21 Jun 2026', h: '19:00', s: 'BC Place, Vancouver' },
+                    { g: 'Grupo I', l: 'Francia', v: 'Noruega', f: '22 Jun 2026', h: '13:00', s: 'Lumen Field, Seattle' },
+                    { g: 'Grupo I', l: 'Senegal', v: 'Irak', f: '22 Jun 2026', h: '16:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo J', l: 'Argentina', v: 'Austria', f: '22 Jun 2026', h: '19:00', s: 'Arrowhead Stadium, KC' },
+                    { g: 'Grupo J', l: 'Argelia', v: 'Jordania', f: '22 Jun 2026', h: '22:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo K', l: 'Portugal', v: 'Colombia', f: '23 Jun 2026', h: '11:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo L', l: 'Inglaterra', v: 'Panamá', f: '23 Jun 2026', h: '14:00', s: 'AT&T Stadium, Dallas' },
+                    { g: 'Grupo L', l: 'Croacia', v: 'Ghana', f: '23 Jun 2026', h: '17:00', s: 'BMO Field, Toronto' },
+                    { g: 'Grupo K', l: 'Uzbekistán', v: 'RD Congo', f: '23 Jun 2026', h: '20:00', s: 'Estadio Akron, GDL' },
+
+                    // JORNADA 3
+                    { g: 'Grupo A', l: 'México', v: 'República Checa', f: '24 Jun 2026', h: '13:00', s: 'Estadio Azteca, CDMX' },
+                    { g: 'Grupo A', l: 'Corea del Sur', v: 'Sudáfrica', f: '24 Jun 2026', h: '13:00', s: 'Estadio BBVA, Monterrey' },
+                    { g: 'Grupo B', l: 'Canadá', v: 'Suiza', f: '24 Jun 2026', h: '17:00', s: 'BC Place, Vancouver' },
+                    { g: 'Grupo B', l: 'Catar', v: 'Bosnia y Herzegovina', f: '24 Jun 2026', h: '17:00', s: 'Lumen Field, Seattle' },
+                    { g: 'Grupo C', l: 'Brasil', v: 'Escocia', f: '24 Jun 2026', h: '20:00', s: 'MetLife Stadium, NY/NJ' },
+                    { g: 'Grupo C', l: 'Haití', v: 'Marruecos', f: '24 Jun 2026', h: '20:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo D', l: 'Estados Unidos', v: 'Turquía', f: '25 Jun 2026', h: '13:00', s: 'SoFi Stadium, LA' },
+                    { g: 'Grupo D', l: 'Australia', v: 'Paraguay', f: '25 Jun 2026', h: '13:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo E', l: 'Alemania', v: 'Ecuador', f: '25 Jun 2026', h: '17:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo E', l: 'Costa de Marfil', v: 'Curazao', f: '25 Jun 2026', h: '17:00', s: 'AT&T Stadium, Dallas' },
+                    { g: 'Grupo F', l: 'Países Bajos', v: 'Túnez', f: '25 Jun 2026', h: '20:00', s: 'BMO Field, Toronto' },
+                    { g: 'Grupo F', l: 'Suecia', v: 'Japón', f: '25 Jun 2026', h: '20:00', s: 'Lincoln Financial, Philadelphia' },
+                    { g: 'Grupo G', l: 'Bélgica', v: 'Nueva Zelanda', f: '26 Jun 2026', h: '13:00', s: 'BC Place, Vancouver' },
+                    { g: 'Grupo G', l: 'Irán', v: 'Egipto', f: '26 Jun 2026', h: '13:00', s: 'Lumen Field, Seattle' },
+                    { g: 'Grupo H', l: 'España', v: 'Uruguay', f: '26 Jun 2026', h: '17:00', s: 'Mercedes-Benz, Atlanta' },
+                    { g: 'Grupo H', l: 'Arabia Saudita', v: 'Cabo Verde', f: '26 Jun 2026', h: '17:00', s: 'Hard Rock, Miami' },
+                    { g: 'Grupo I', l: 'Francia', v: 'Irak', f: '26 Jun 2026', h: '20:00', s: 'MetLife Stadium, NY/NJ' },
+                    { g: 'Grupo I', l: 'Senegal', v: 'Noruega', f: '26 Jun 2026', h: '20:00', s: 'Gillette Stadium, Boston' },
+                    { g: 'Grupo J', l: 'Argentina', v: 'Jordania', f: '27 Jun 2026', h: '13:00', s: 'Arrowhead Stadium, KC' },
+                    { g: 'Grupo J', l: 'Argelia', v: 'Austria', f: '27 Jun 2026', h: '13:00', s: 'Levi\'s Stadium, SF' },
+                    { g: 'Grupo K', l: 'Portugal', v: 'Uzbekistán', f: '27 Jun 2026', h: '17:00', s: 'NRG Stadium, Houston' },
+                    { g: 'Grupo K', l: 'Colombia', v: 'RD Congo', f: '27 Jun 2026', h: '17:00', s: 'Estadio Azteca, CDMX' },
+                    { g: 'Grupo L', l: 'Inglaterra', v: 'Ghana', f: '27 Jun 2026', h: '20:00', s: 'AT&T Stadium, Dallas' },
+                    { g: 'Grupo L', l: 'Croacia', v: 'Panamá', f: '27 Jun 2026', h: '20:00', s: 'BMO Field, Toronto' }
+                ];
+
                 const batch = db.batch();
-
-                Object.keys(gruposData).forEach((grupo, idxGrupo) => {
-                    const eq = gruposData[grupo];
-                    // Formato FIFA: J1(1v2, 3v4), J2(1v3, 4v2), J3(4v1, 2v3)
-                    const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [3, 1], [3, 0], [1, 2] ];
-                    
-                    enfrentamientos.forEach((enf, index) => {
-                        const ref = db.collection('partidos').doc();
-                        
-                        let sedeAsignada = 'Sede por sorteo';
-                        let fechaAsignada = 'Junio 2026';
-
-                        // --- DATOS CONFIRMADOS OFICIALES POR FIFA (Mundial 2026) ---
-                        // MÉXICO (Grupo A)
-                        if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A2') { sedeAsignada = 'Estadio Azteca, CDMX'; fechaAsignada = '11 Jun 2026'; }
-                        if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A3') { sedeAsignada = 'Estadio Akron, GDL'; fechaAsignada = '18 Jun 2026'; }
-                        if (eq[enf[0]] === 'Equipo A4' && eq[enf[1]] === 'México') { sedeAsignada = 'Estadio Azteca, CDMX'; fechaAsignada = '24 Jun 2026'; }
-                        
-                        // CANADÁ (Grupo B)
-                        if (eq[enf[0]] === 'Canadá' && eq[enf[1]] === 'Equipo B2') { sedeAsignada = 'BMO Field, Toronto'; fechaAsignada = '12 Jun 2026'; }
-                        if (eq[enf[0]] === 'Canadá' && eq[enf[1]] === 'Equipo B3') { sedeAsignada = 'BC Place, Vancouver'; fechaAsignada = '18 Jun 2026'; }
-                        if (eq[enf[0]] === 'Equipo B4' && eq[enf[1]] === 'Canadá') { sedeAsignada = 'BC Place, Vancouver'; fechaAsignada = '24 Jun 2026'; }
-
-                        // ESTADOS UNIDOS (Grupo D)
-                        if (eq[enf[0]] === 'Estados Unidos' && eq[enf[1]] === 'Equipo D2') { sedeAsignada = 'SoFi Stadium, LA'; fechaAsignada = '12 Jun 2026'; }
-                        if (eq[enf[0]] === 'Estados Unidos' && eq[enf[1]] === 'Equipo D3') { sedeAsignada = 'Lumen Field, Seattle'; fechaAsignada = '19 Jun 2026'; }
-                        if (eq[enf[0]] === 'Equipo D4' && eq[enf[1]] === 'Estados Unidos') { sedeAsignada = 'SoFi Stadium, LA'; fechaAsignada = '25 Jun 2026'; }
-
-                        batch.set(ref, {
-                            orden: ordenGlobal,
-                            grupo: grupo,
-                            local: eq[enf[0]],
-                            visitante: eq[enf[1]],
-                            fecha: fechaAsignada,
-                            hora: 'TBD (Pendiente FIFA)',
-                            sede: sedeAsignada,
-                            estado: 'pendiente', 
-                            golesL_real: null, golesV_real: null 
-                        });
-                        ordenGlobal++;
+                PARTIDOS_OFICIALES.forEach((p, index) => {
+                    const ref = db.collection('partidos').doc();
+                    batch.set(ref, {
+                        orden: index + 1,
+                        grupo: p.g,
+                        local: p.l,
+                        visitante: p.v,
+                        fecha: p.f,
+                        hora: p.h,
+                        sede: p.s,
+                        estado: 'pendiente', 
+                        golesL_real: null, golesV_real: null 
                     });
                 });
 
                 try {
-                    alert("Generando 72 partidos de la Fase de Grupos Oficial... Espera.");
+                    alert("Inyectando 72 partidos de la base de datos oficial FIFA 2026... Espera.");
                     await batch.commit();
-                    alert("¡Los 72 partidos de Fase de Grupos fueron creados con las fechas y sedes oficiales para los anfitriones!");
+                    alert("¡Éxito! Base de datos cargada perfectamente con fechas, horarios CDMX y sedes reales.");
                 } catch(e) { alert("Error al generar partidos."); }
             };
 
             const borrarTodosLosPartidos = async () => {
-                if(confirm("¿Estás seguro de borrar TODOS los partidos de la base de datos?")) {
+                if(confirm("¿Estás seguro de borrar todos los partidos?")) {
                     const snapshot = await db.collection('partidos').get();
                     const batch = db.batch();
                     snapshot.docs.forEach((doc) => batch.delete(doc.ref));
                     await batch.commit();
-                    alert("Torneo limpiado con éxito.");
+                    alert("Torneo limpiado.");
                 }
             };
 
@@ -291,7 +335,6 @@
                 }
             };
 
-            // MOTOR DE ASIGNACIÓN DE PUNTOS
             const calcularPuntosGlobal = async () => {
                 const snapshotUsuarios = await db.collection('usuarios').get();
                 const batch = db.batch();
@@ -305,7 +348,6 @@
                         if (p.estado === 'finalizado') {
                             const pickUsuario = susPicks[p.id]; 
                             if (pickUsuario) {
-                                // Calculamos la tendencia real del partido finalizado
                                 let tReal = p.golesL_real > p.golesV_real ? 'local' : (p.golesL_real < p.golesV_real ? 'visitante' : 'empate');
                                 if (tReal === pickUsuario) puntosTotales += 1;
                             }
@@ -315,14 +357,12 @@
                 });
                 
                 await batch.commit();
-                alert("Ranking actualizado. Se evaluaron las tendencias y asignaron los puntos.");
+                alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
             };
 
-            // ALGORITMO MATCH PERFECTO CON LA API
             const handleSyncAPI = async () => {
                 setIsSyncing(true);
                 try {
-                    // Endpoint Liga Mundial FIFA = 1, Temporada 2026
                     const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
                         method: "GET", headers: { "x-apisports-key": API_KEY }
                     });
@@ -334,11 +374,12 @@
                     const batch = db.batch();
 
                     data.response.forEach(fixture => {
-                        if (fixture.fixture.status.short === 'FT') { // Match Finished
+                        if (fixture.fixture.status.short === 'FT') { 
+                            // TRADUCTOR INTELIGENTE EN ACCIÓN
                             const apiHomeTranslated = traducirNombre(fixture.teams.home.name);
                             const apiAwayTranslated = traducirNombre(fixture.teams.away.name);
                             
-                            // Hacemos MATCH usando el nombre normalizado de tu Base de Datos vs Nombre Traducido de la API
+                            // BUSCADOR CON NORMALIZADOR (Match a prueba de errores)
                             const matchEncontrado = partidos.find(p => 
                                 normalizeName(p.local) === apiHomeTranslated && 
                                 normalizeName(p.visitante) === apiAwayTranslated
@@ -358,10 +399,10 @@
 
                     if(actualizados > 0) {
                         await batch.commit();
-                        await calcularPuntosGlobal(); // Se disparan los puntos automáticamente al haber match
-                        alert(`¡API Sincronizada! ${actualizados} partidos finalizados encontrados. Puntos repartidos en el Ranking.`);
+                        await calcularPuntosGlobal(); 
+                        alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados. Puntos repartidos.`);
                     } else {
-                        alert("Conexión con la API Exitosa. No hay partidos nuevos finalizados que coincidan con la base de datos.");
+                        alert("Conexión con la API Exitosa. Todos los partidos están al día. No hay nuevos resultados por procesar.");
                     }
                 } catch (error) {
                     alert("Error conectando con la API.");
@@ -373,7 +414,6 @@
             // ==========================================
             if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
 
-            // PANTALLA DE LOGIN DISEÑO PANINI
             if (!user || !profile?.username || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
@@ -463,7 +503,7 @@
                                                             <div className="w-full flex justify-between items-center mb-6 border-b border-[#C5A97D]/20 pb-3">
                                                                 <div className="flex flex-col gap-1">
                                                                     <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
-                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora}</div>
+                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora} Hrs</div>
                                                                 </div>
                                                                 <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase text-right max-w-[50%]"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                             </div>
@@ -506,7 +546,7 @@
                             <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8 relative">
                                 <Icon name="lock" size={64} className="text-[#C5A97D] mb-6 opacity-90 drop-shadow-lg" />
                                 <h3 className="text-3xl font-display font-black mb-4 text-white">FASE BLOQUEADA</h3>
-                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span> una vez que la FIFA anuncie los clasificados.</p>
+                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span> al terminar los grupos.</p>
                             </div>
                         )}
 
@@ -564,13 +604,13 @@
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Motor de Resultados</p>
                                         <button onClick={handleSyncAPI} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3 disabled:opacity-50 flex justify-center items-center gap-2">
-                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> 1. Sincronizar API en vivo
+                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> 1. Sincronizar API y Puntos
                                         </button>
                                         <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">2. Forzar Recálculo Puntos</button>
                                     </div>
 
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Base Oficial FIFA</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Oficial FIFA</p>
                                         <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl hover:bg-[#D31145] hover:text-white transition-all mb-3">Borrar Todo</button>
                                         <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos Reales</button>
                                     </div>
