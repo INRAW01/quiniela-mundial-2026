@@ -205,6 +205,41 @@
                 }
             };
 
+            // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
+            React.useEffect(() => {
+                // Solo ejecutamos esto si la base de datos de partidos ya cargó
+                if (partidos.length === 0 || !user) return;
+
+                const checarSincronizacionAutomatica = async () => {
+                    try {
+                        const configRef = db.collection('sistema').doc('configuracion');
+                        const doc = await configRef.get();
+                        const ahora = new Date().getTime();
+
+                        if (!doc.exists) {
+                            // Si es la primerísima vez que arranca la app, creamos el reloj y sincronizamos
+                            await configRef.set({ ultima_sincronizacion: ahora });
+                            handleSyncAPI(true); // "true" significa modo silencioso
+                        } else {
+                            const ultimaSync = doc.data().ultima_sincronizacion;
+                            const horasPasadas = (ahora - ultimaSync) / (1000 * 60 * 60);
+
+                            // Si pasó 1 hora (o más) desde la última actualización
+                            if (horasPasadas >= 1) {
+                                console.log("Han pasado más de 60 minutos. Sincronizando API en el fondo...");
+                                // Bloqueamos inmediatamente el reloj para evitar que 2 usuarios lo disparen a la vez
+                                await configRef.update({ ultima_sincronizacion: ahora });
+                                handleSyncAPI(true);
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error en el motor automático:", error);
+                    }
+                };
+
+                checarSincronizacionAutomatica();
+            }, [partidos.length, user]);
+            
             const guardarTendencia = async (partidoId, tendencia) => {
                 if (!profile || profile.locked) return;
                 const picksActuales = profile.picks || {};
@@ -379,8 +414,8 @@
                 alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
             };
 
-            const handleSyncAPI = async () => {
-                setIsSyncing(true);
+            const handleSyncAPI = async (silencioso = false) => {
+                if (!silencioso) setIsSyncing(true);
                 try {
                     const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
                         method: "GET", headers: { "x-apisports-key": API_KEY }
@@ -414,16 +449,22 @@
                         }
                     });
 
+                    // NUEVO: El sistema anota en Firebase a qué hora hizo esta sincronización
+                    const configRef = db.collection('sistema').doc('configuracion');
+                    await configRef.set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
+
                     if(actualizados > 0) {
                         await batch.commit();
                         await calcularPuntosGlobal(); 
-                        alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados. Puntos repartidos.`);
+                        if (!silencioso) alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados.`);
                     } else {
-                        alert("Conexión con la API Exitosa. Todos los partidos están al día. No hay nuevos resultados por procesar.");
+                        if (!silencioso) alert("Conexión con la API Exitosa. Todos los partidos están al día.");
                     }
                 } catch (error) {
-                    alert("Error conectando con la API.");
-                } finally { setIsSyncing(false); }
+                    if (!silencioso) alert("Error conectando con la API.");
+                } finally { 
+                    if (!silencioso) setIsSyncing(false); 
+                }
             };
 
             // ==========================================
