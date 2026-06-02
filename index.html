@@ -23,11 +23,12 @@
             color: white; 
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent; 
+            overflow-x: hidden;
         }
         
         .font-display { font-family: 'Outfit', sans-serif; }
         .panini-gradient { background: linear-gradient(135deg, #00623B 0%, #033B25 100%); }
-        .panini-card { background-color: #033B25; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        .panini-card { background-color: #033B25; border: 1px solid rgba(197, 169, 125, 0.2); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -56,21 +57,8 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // DICCIONARIO DE BANDERAS
-        const BANDERAS = {
-            'México': '🇲🇽', 'Camerún': '🇨🇲', 'Croacia': '🇭🇷', 'Brasil': '🇧🇷',
-            'Canadá': '🇨🇦', 'Marruecos': '🇲🇦', 'Ecuador': '🇪🇨', 'Italia': '🇮🇹',
-            'Estados Unidos': '🇺🇸', 'Uruguay': '🇺🇾', 'Senegal': '🇸🇳', 'Japón': '🇯🇵',
-            'Francia': '🇫🇷', 'Colombia': '🇨🇴', 'Corea del Sur': '🇰🇷', 'Nigeria': '🇳🇬',
-            'España': '🇪🇸', 'Costa Rica': '🇨🇷', 'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Suiza': '🇨🇭',
-            'Argentina': '🇦🇷', 'Alemania': '🇩🇪', 'Portugal': '🇵🇹', 'Países Bajos': '🇳🇱',
-            'Bélgica': '🇧🇪', 'Chile': '🇨🇱', 'Arabia Saudita': '🇸🇦', 'Serbia': '🇷🇸',
-            'Perú': '🇵🇪', 'Suecia': '🇸🇪', 'Argelia': '🇩🇿', 'Australia': '🇦🇺',
-            'Dinamarca': '🇩🇰', 'Irán': '🇮🇷', 'Venezuela': '🇻🇪', 'Gales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-            'Polonia': '🇵🇱', 'Egipto': '🇪🇬', 'Paraguay': '🇵🇾', 'Austria': '🇦🇹',
-            'Ucrania': '🇺🇦', 'Mali': '🇲🇱', 'Nueva Zelanda': '🇳🇿', 'Turquía': '🇹🇷',
-            'Qatar': '🇶🇦', 'Jamaica': '🇯🇲', 'Noruega': '🇳🇴', 'Honduras': '🇭🇳'
-        };
+        // BANDERAS SOLO PARA LOS HOSTS CONFIRMADOS
+        const BANDERAS = { 'México': '🇲🇽', 'Canadá': '🇨🇦', 'Estados Unidos': '🇺🇸' };
         const getBandera = (pais) => BANDERAS[pais] || '🏳️';
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -79,6 +67,12 @@
                 if (ref.current) lucide.createIcons({ icons: { [name]: lucide.icons[name] }, nameAttr: 'data-lucide', attrs: { class: className, width: size, height: size } });
             }, [name, size, className]);
             return <i ref={ref} data-lucide={name}></i>;
+        };
+
+        // NORMALIZADOR DE TEXTO PARA LA API
+        const normalizeName = (str) => {
+            if(!str) return "";
+            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
         // ==========================================
@@ -97,7 +91,6 @@
             const [showAdminModal, setShowAdminModal] = React.useState(false);
             const [isSyncing, setIsSyncing] = React.useState(false);
 
-            // GESTIÓN DE SESIÓN
             React.useEffect(() => {
                 const savedUid = localStorage.getItem('quiniela_user_uid');
                 auth.onAuthStateChanged(async (u) => {
@@ -155,79 +148,92 @@
                     localStorage.setItem('quiniela_user_uid', currentUserUid);
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
-                    setIsLoading(false); setIsLoginExiting(true); 
+                    
+                    // SOLUCIÓN A LA PANTALLA ROJA (Temporizador de transición)
+                    setIsLoginExiting(true); 
+                    setTimeout(() => {
+                        setIsLoginExiting(false);
+                        setIsLoading(false);
+                    }, 500);
+
                 } catch (error) {
                     alert("Error de conexión."); setIsLoading(false);
                 }
             };
 
-            // ACTUALIZACIÓN EXCLUSIVA DE TENDENCIA (SIN MARCADORES NUMÉRICOS)
             const guardarTendencia = async (partidoId, tendencia) => {
                 if (!profile || profile.locked) return;
                 const picksActuales = profile.picks || {};
-                const nuevoPick = { ...picksActuales, [partidoId]: tendencia }; // 'local', 'empate', o 'visitante'
+                const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
                 await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
             };
 
-            // BOTÓN DE BLOQUEO MAESTRO
             const handleBloquearQuiniela = async () => {
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás completamente seguro de GUARDAR Y BLOQUEAR tu quiniela? Una vez hecho, entrarás al Ranking Oficial y no podrás modificar tus selecciones.`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial?`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
-                    alert("¡Quiniela Bloqueada Exitosamente! Ya estás participando en el Ranking Oficial.");
+                    alert("¡Quiniela Bloqueada Exitosamente!");
                 }
             };
 
             // ==========================================
-            // 3. PANEL DE ADMINISTRADOR & MOTORES API
+            // 3. PANEL DE ADMINISTRADOR & GENERADOR OFICIAL
             // ==========================================
             const cargarPartidosBase = async () => {
+                // ESTRUCTURA OFICIAL FIFA 2026 (HOSTS CONFIRMADOS, RESTO POR SORTEAR)
                 const gruposData = {
-                    'Grupo A': ['México', 'Camerún', 'Croacia', 'Brasil'],
-                    'Grupo B': ['Canadá', 'Marruecos', 'Ecuador', 'Italia'],
-                    'Grupo C': ['Estados Unidos', 'Uruguay', 'Senegal', 'Japón'],
-                    'Grupo D': ['Francia', 'Colombia', 'Corea del Sur', 'Nigeria'],
-                    'Grupo E': ['España', 'Costa Rica', 'Inglaterra', 'Suiza'],
-                    'Grupo F': ['Argentina', 'Alemania', 'Portugal', 'Países Bajos'],
-                    'Grupo G': ['Bélgica', 'Chile', 'Arabia Saudita', 'Serbia'],
-                    'Grupo H': ['Perú', 'Suecia', 'Argelia', 'Australia'],
-                    'Grupo I': ['Dinamarca', 'Irán', 'Venezuela', 'Gales'],
-                    'Grupo J': ['Polonia', 'Egipto', 'Paraguay', 'Austria'],
-                    'Grupo K': ['Ucrania', 'Mali', 'Nueva Zelanda', 'Turquía'],
-                    'Grupo L': ['Qatar', 'Jamaica', 'Noruega', 'Honduras']
+                    'Grupo A': ['México', 'Equipo A2', 'Equipo A3', 'Equipo A4'],
+                    'Grupo B': ['Canadá', 'Equipo B2', 'Equipo B3', 'Equipo B4'],
+                    'Grupo C': ['Equipo C1', 'Equipo C2', 'Equipo C3', 'Equipo C4'],
+                    'Grupo D': ['Estados Unidos', 'Equipo D2', 'Equipo D3', 'Equipo D4'],
+                    'Grupo E': ['Equipo E1', 'Equipo E2', 'Equipo E3', 'Equipo E4'],
+                    'Grupo F': ['Equipo F1', 'Equipo F2', 'Equipo F3', 'Equipo F4'],
+                    'Grupo G': ['Equipo G1', 'Equipo G2', 'Equipo G3', 'Equipo G4'],
+                    'Grupo H': ['Equipo H1', 'Equipo H2', 'Equipo H3', 'Equipo H4'],
+                    'Grupo I': ['Equipo I1', 'Equipo I2', 'Equipo I3', 'Equipo I4'],
+                    'Grupo J': ['Equipo J1', 'Equipo J2', 'Equipo J3', 'Equipo J4'],
+                    'Grupo K': ['Equipo K1', 'Equipo K2', 'Equipo K3', 'Equipo K4'],
+                    'Grupo L': ['Equipo L1', 'Equipo L2', 'Equipo L3', 'Equipo L4']
                 };
                 
-                const sedes = ['Estadio Azteca, CDMX', 'MetLife Stadium, NY', 'SoFi Stadium, LA', 'Hard Rock, Miami', 'AT&T Stadium, Dallas', 'BC Place, Vancouver'];
                 let ordenGlobal = 1;
                 const batch = db.batch();
 
-                // Matemática Perfecta de Enfrentamientos: Local(0)-Visita(1), L(2)-V(3), L(0)-V(2), L(1)-V(3), L(0)-V(3), L(1)-V(2)
                 Object.keys(gruposData).forEach(grupo => {
                     const eq = gruposData[grupo];
+                    // Formato de 6 partidos por grupo
                     const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2] ];
                     
                     enfrentamientos.forEach((enf, index) => {
                         const ref = db.collection('partidos').doc();
+                        
+                        // Si el partido es México vs A2, le ponemos sede oficial
+                        let sedeAsignada = 'Sede por confirmar';
+                        let fechaAsignada = `Jornada ${Math.floor(index/2) + 1}`;
+                        
+                        if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A2') { sedeAsignada = 'Estadio Azteca, CDMX'; fechaAsignada = '11 Jun 2026'; }
+                        if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A3') { sedeAsignada = 'Estadio Akron, GDL'; fechaAsignada = '18 Jun 2026'; }
+
                         batch.set(ref, {
                             orden: ordenGlobal,
                             grupo: grupo,
                             local: eq[enf[0]],
                             visitante: eq[enf[1]],
-                            fecha: `Jornada ${Math.floor(index/2) + 1}`,
-                            hora: 'Por definir',
-                            sede: sedes[ordenGlobal % 6],
+                            fecha: fechaAsignada,
+                            hora: 'Horario oficial TBD',
+                            sede: sedeAsignada,
                             estado: 'pendiente', 
-                            golesL_real: null, golesV_real: null // Ocultos en UI, necesarios para la API
+                            golesL_real: null, golesV_real: null 
                         });
                         ordenGlobal++;
                     });
                 });
 
                 try {
-                    alert("Generando 72 partidos únicos... Espera un momento.");
+                    alert("Generando 72 partidos de la Fase de Grupos Oficial... Espera.");
                     await batch.commit();
-                    alert("¡Los 72 partidos fueron creados y organizados correctamente sin repeticiones!");
+                    alert("¡Los 72 partidos fueron creados! Hosts asignados, resto a la espera del sorteo.");
                 } catch(e) { alert("Error al generar partidos."); }
             };
 
@@ -251,7 +257,6 @@
                 }
             };
 
-            // MOTOR DE CALCULO DE TENDENCIAS
             const calcularPuntosGlobal = async () => {
                 const snapshotUsuarios = await db.collection('usuarios').get();
                 const batch = db.batch();
@@ -263,10 +268,10 @@
                     
                     partidos.forEach(p => {
                         if (p.estado === 'finalizado') {
-                            const pickUsuario = susPicks[p.id]; // 'local', 'empate' o 'visitante'
+                            const pickUsuario = susPicks[p.id]; 
                             if (pickUsuario) {
                                 let tReal = p.golesL_real > p.golesV_real ? 'local' : (p.golesL_real < p.golesV_real ? 'visitante' : 'empate');
-                                if (tReal === pickUsuario) puntosTotales += 1; // 1 Punto Exacto por Tendencia
+                                if (tReal === pickUsuario) puntosTotales += 1;
                             }
                         }
                     });
@@ -277,13 +282,11 @@
                 alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
             };
 
-            // ALGORITMO INTELIGENTE API-FOOTBALL
             const handleSyncAPI = async () => {
                 setIsSyncing(true);
                 try {
                     const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
-                        method: "GET",
-                        headers: { "x-apisports-key": API_KEY }
+                        method: "GET", headers: { "x-apisports-key": API_KEY }
                     });
                     const data = await res.json();
                     
@@ -293,13 +296,16 @@
                     const batch = db.batch();
 
                     data.response.forEach(fixture => {
-                        if (fixture.fixture.status.short === 'FT') { // Match Finished
-                            // Lógica de Sincronización: Buscar match en Firebase por nombres
-                            // (En 2026, si la API tiene nombres en inglés, aquí se aplicará un diccionario traductor)
+                        if (fixture.fixture.status.short === 'FT') { 
                             const apiHome = fixture.teams.home.name;
                             const apiAway = fixture.teams.away.name;
                             
-                            const matchEncontrado = partidos.find(p => p.local === apiHome && p.visitante === apiAway);
+                            // BUSCADOR CON NORMALIZADOR (Evita errores por tildes o mayúsculas)
+                            const matchEncontrado = partidos.find(p => 
+                                normalizeName(p.local) === normalizeName(apiHome) && 
+                                normalizeName(p.visitante) === normalizeName(apiAway)
+                            );
+                            
                             if(matchEncontrado && matchEncontrado.estado === 'pendiente') {
                                 const ref = db.collection('partidos').doc(matchEncontrado.id);
                                 batch.update(ref, {
@@ -314,29 +320,47 @@
 
                     if(actualizados > 0) {
                         await batch.commit();
-                        await calcularPuntosGlobal(); // Calcular automáticamente al guardar
+                        await calcularPuntosGlobal(); 
                         alert(`¡API Sincronizada! ${actualizados} partidos nuevos finalizados. Puntos repartidos.`);
                     } else {
-                        alert("Conexión con API Exitosa. No hay partidos finalizados nuevos para actualizar hoy.");
+                        alert("Conexión API Exitosa. No hay partidos finalizados nuevos.");
                     }
                 } catch (error) {
-                    alert("Error conectando con la API de resultados en vivo.");
+                    alert("Error conectando con la API.");
                 } finally { setIsSyncing(false); }
             };
 
             // ==========================================
             // 4. RENDERIZADO UI
             // ==========================================
-            if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#00623B] font-display text-2xl font-black text-white">CARGANDO...</div>;
+            if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
 
+            // PANTALLA DE LOGIN CON DISEÑO PANINI
             if (!user || !profile?.username || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                        <div className="text-center mb-10"><h1 className="text-9xl font-black text-white font-display italic">26</h1></div>
-                        <form onSubmit={handleLogin} className="w-full max-w-sm bg-white p-8 rounded-3xl text-center">
-                            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tu nombre..." className="w-full px-4 py-4 rounded-xl border-4 border-gray-100 text-black font-black focus:border-[#00623B] outline-none mb-6 text-center text-2xl uppercase" required />
-                            <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] text-white font-black py-4 rounded-xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">ENTRAR AL MUNDIAL</button>
-                        </form>
+                        
+                        <div className="w-full max-w-sm panini-gradient p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform -rotate-1 hover:rotate-0 transition-transform duration-500">
+                            <div className="border-4 border-[#C5A97D] rounded-xl p-8 text-center bg-[#53121F] relative overflow-hidden">
+                                
+                                <div className="absolute top-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
+                                <div className="absolute top-3 right-3 w-3 h-3 bg-white/20 rounded-full"></div>
+                                <div className="absolute bottom-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
+                                <div className="absolute bottom-3 right-3 w-3 h-3 bg-white/20 rounded-full"></div>
+
+                                <h1 className="text-8xl font-black text-white font-display italic drop-shadow-lg tracking-tighter mt-4">26</h1>
+                                <h2 className="text-3xl font-black tracking-widest text-[#C5A97D] uppercase mt-0 mb-8">Quiniela</h2>
+                                
+                                <form onSubmit={handleLogin} className="relative z-10">
+                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Ingresa tu nombre" className="w-full px-4 py-4 rounded-xl border-4 border-gray-200 text-black font-black focus:border-[#C5A97D] outline-none mb-6 text-center text-xl uppercase shadow-inner" required />
+                                    <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] border-2 border-white/20 text-white font-black py-4 rounded-xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 shadow-xl">
+                                        ENTRAR AL JUEGO
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div className="fixed bottom-2 right-4 text-[10px] text-white/30 font-black uppercase tracking-widest pointer-events-none">zorras</div>
                     </div>
                 );
             }
@@ -350,10 +374,10 @@
                     <div className="bg-[#00623B] pt-safe pb-4 px-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
                         <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full">
                             <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
-                                <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md">26</span>
+                                <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span>
                             </h1>
-                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-white/10">
-                                <span className="font-bold text-sm uppercase text-white">{profile.username}</span>
+                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30">
+                                <span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span>
                             </div>
                         </div>
                         <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2">
@@ -371,8 +395,7 @@
                         {activeTab === 'grupos' && (
                             <div className="animate-fade-in">
                                 
-                                {/* BARRA DE PROGRESO */}
-                                <div className="bg-[#033B25] p-6 rounded-3xl border border-[#00623B] flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
+                                <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
                                     <div className="mb-4 md:mb-0 text-center md:text-left">
                                         <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
                                         <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} de 72 partidos.</p>
@@ -384,28 +407,26 @@
                                 </div>
 
                                 {partidos.length === 0 ? (
-                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">Torneo vacío.</p></div>
+                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">El torneo está vacío.</p></div>
                                 ) : (
                                     gruposNombres.map(grupo => (
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             
-                                            {/* RESPONSIVO: 1 Col Celular, 2 Tablet, 3 PC */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                 {partidos.filter(p => p.grupo === grupo).map(partido => {
-                                                    const miPick = profile.picks?.[partido.id]; // 'local', 'empate', 'visitante'
+                                                    const miPick = profile.picks?.[partido.id];
 
                                                     return (
                                                         <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
                                                             {profile.locked && <div className="absolute inset-0 bg-black/10 pointer-events-none z-10"></div>}
                                                             {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
                                                             
-                                                            <div className="w-full flex justify-between items-center mb-6 border-b border-white/10 pb-3">
-                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
-                                                                <div className="flex items-center gap-1 text-[#C5A97D]/80 text-[10px] font-black tracking-widest uppercase"><Icon name="map-pin" size={12}/> {partido.sede}</div>
+                                                            <div className="w-full flex justify-between items-center mb-6 border-b border-[#C5A97D]/20 pb-3">
+                                                                <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
+                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                             </div>
 
-                                                            {/* EQUIPOS Y VS (SIN INPUTS) */}
                                                             <div className="flex items-center justify-between w-full gap-2 mb-8">
                                                                 <div className="flex-1 flex flex-col items-center gap-2">
                                                                     <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
@@ -422,7 +443,6 @@
                                                                 </div>
                                                             </div>
 
-                                                            {/* BOTONES EXCLUSIVOS DE TENDENCIA */}
                                                             <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
                                                                 <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${miPick === 'local' ? 'bg-[#D31145] text-white shadow-[0_4px_10px_rgba(211,17,69,0.5)] scale-105' : 'bg-black/40 text-white/50 hover:bg-black/60'}`}>Local</button>
                                                                 
@@ -452,9 +472,9 @@
                         {/* ====== RANKING ====== */}
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in">
-                                <div className="panini-gradient p-8 rounded-3xl shadow-xl text-center relative mb-8">
+                                <div className="panini-gradient p-8 rounded-3xl shadow-xl text-center relative mb-8 border border-[#C5A97D]/50">
                                     <h2 className="font-display font-black text-4xl mb-2 text-white drop-shadow-lg uppercase tracking-tight">Ranking Oficial</h2>
-                                    <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo usuarios con Quiniela Bloqueada participan</p>
+                                    <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo quinielas bloqueadas participan</p>
                                     <button onClick={() => { if(prompt("Contraseña:")==="26zorras27") setShowAdminModal(true); }} className="absolute top-4 right-4 bg-black/40 hover:bg-black/70 text-white/90 border border-[#C5A97D]/30 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all backdrop-blur-sm">⚙️ ADMIN</button>
                                 </div>
                                 
@@ -489,16 +509,17 @@
                         )}
                     </main>
 
+                    <div className="fixed bottom-2 right-4 text-[10px] text-white/10 font-black uppercase tracking-widest pointer-events-none z-0">zorras</div>
+
                     {/* ====== MODAL ADMIN ====== */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
-                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white p-2 transition-colors bg-black/20 rounded-full"><Icon name="x" size={24} /></button>
-                                <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-white/10 pb-4">Panel de Control</h2>
+                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2"><Icon name="x" size={24} /></button>
+                                <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4">Panel de Control</h2>
                                 
                                 <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                                     
-                                    {/* 1. API */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados y Puntos</p>
                                         <button onClick={handleSyncAPI} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3 disabled:opacity-50 flex justify-center items-center gap-2">
@@ -507,14 +528,12 @@
                                         <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">Forzar Recálculo</button>
                                     </div>
 
-                                    {/* 2. TORNEO */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Base</p>
                                         <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl hover:bg-[#D31145] hover:text-white transition-all mb-3">Borrar Todo</button>
-                                        <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos</button>
+                                        <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos Reales</button>
                                     </div>
 
-                                    {/* 3. USUARIOS (ELIMINAR) */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestionar Usuarios</p>
                                         <div className="space-y-2">
