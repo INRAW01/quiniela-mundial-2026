@@ -23,32 +23,15 @@
             color: white; 
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent; 
-            overflow-x: hidden; 
         }
         
         .font-display { font-family: 'Outfit', sans-serif; }
-        
-        .panini-gradient { 
-            background: linear-gradient(135deg, #00623B 0%, #033B25 100%); 
-            border: 1px solid rgba(197, 169, 125, 0.3); 
-        }
-        
-        .panini-card {
-            background-color: #033B25;
-            border: 1px solid #00623B;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
-        }
-
-        .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
+        .panini-gradient { background: linear-gradient(135deg, #00623B 0%, #033B25 100%); }
+        .panini-card { background-color: #033B25; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #C5A97D; border-radius: 10px; }
@@ -66,19 +49,15 @@
             projectId: "quiniela-2026-59b53",
             storageBucket: "quiniela-2026-59b53.firebasestorage.app",
             messagingSenderId: "1075755299669",
-            appId: "1:1075755299669:web:f565bbd29ee371e60235dc",
-            measurementId: "G-QC1R3L0261"
+            appId: "1:1075755299669:web:f565bbd29ee371e60235dc"
         };
-
         const API_KEY = "176f818a4f007967747803df84e545cf";
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // ==========================================
         // DICCIONARIO DE BANDERAS
-        // ==========================================
         const BANDERAS = {
             'México': '🇲🇽', 'Camerún': '🇨🇲', 'Croacia': '🇭🇷', 'Brasil': '🇧🇷',
             'Canadá': '🇨🇦', 'Marruecos': '🇲🇦', 'Ecuador': '🇪🇨', 'Italia': '🇮🇹',
@@ -117,32 +96,26 @@
             const [isLoading, setIsLoading] = React.useState(true);
             const [isLoginExiting, setIsLoginExiting] = React.useState(false);
             const [showAdminModal, setShowAdminModal] = React.useState(false);
-            const [isSyncing, setIsSyncing] = React.useState(false);
 
+            // GESTIÓN DE SESIÓN
             React.useEffect(() => {
-                const initAuth = async () => {
-                    const savedUid = localStorage.getItem('quiniela_user_uid');
-                    auth.onAuthStateChanged(async (u) => {
-                        if (u) {
-                            const doc = await db.collection('usuarios').doc(u.uid).get();
-                            if (doc.exists) {
-                                setProfile({ id: u.uid, ...doc.data() });
-                                setUser(u);
-                                localStorage.setItem('quiniela_user_uid', u.uid);
-                            }
-                        } else if (savedUid) {
-                            try {
-                                const doc = await db.collection('usuarios').doc(savedUid).get();
-                                if (doc.exists) {
-                                    setProfile({ id: savedUid, ...doc.data() });
-                                    setUser({ uid: savedUid }); 
-                                }
-                            } catch(e) {}
+                const savedUid = localStorage.getItem('quiniela_user_uid');
+                auth.onAuthStateChanged(async (u) => {
+                    if (u) {
+                        const doc = await db.collection('usuarios').doc(u.uid).get();
+                        if (doc.exists) {
+                            setProfile({ id: u.uid, ...doc.data() });
+                            setUser(u);
+                            localStorage.setItem('quiniela_user_uid', u.uid);
                         }
-                        setIsLoading(false);
-                    });
-                };
-                initAuth();
+                    } else if (savedUid) {
+                        try {
+                            const doc = await db.collection('usuarios').doc(savedUid).get();
+                            if (doc.exists) { setProfile({ id: savedUid, ...doc.data() }); setUser({ uid: savedUid }); }
+                        } catch(e) {}
+                    }
+                    setIsLoading(false);
+                });
             }, []);
 
             React.useEffect(() => {
@@ -174,340 +147,249 @@
                     } else {
                         const cred = await auth.signInAnonymously();
                         currentUserUid = cred.user.uid;
+                        // Novedad: Agregamos locked: false al crear usuario
                         await db.collection('usuarios').doc(currentUserUid).set({
-                            username: username.trim(), picks: {}, puntos: 0, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            username: username.trim(), picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         setUser(cred.user);
                     }
                     localStorage.setItem('quiniela_user_uid', currentUserUid);
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
-                    
-                    setIsLoading(false);
-                    setIsLoginExiting(true); 
+                    setIsLoading(false); setIsLoginExiting(true); 
                 } catch (error) {
-                    alert("Error de conexión. Intenta nuevamente.");
-                    setIsLoading(false);
+                    alert("Error de conexión."); setIsLoading(false);
                 }
             };
 
+            // ACTUALIZACIÓN DE MARCADOR
             const guardarPrediccion = async (partidoId, tipo, valor) => {
-                if (!profile) return;
+                if (!profile || profile.locked) return;
                 const parseado = valor === '' ? '' : parseInt(valor);
                 const picksActuales = profile.picks || {};
-                const nuevoPick = {
-                    ...picksActuales,
-                    [partidoId]: {
-                        ...picksActuales[partidoId],
-                        [tipo]: parseado
-                    }
-                };
+                const nuevoPick = { ...picksActuales, [partidoId]: { ...picksActuales[partidoId], [tipo]: parseado } };
                 await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
             };
 
-            // ==========================================
-            // 3. PANEL DE ADMINISTRADOR & MOTORES
-            // ==========================================
-            const handleAdminAccess = () => {
-                const pwd = prompt("Ingresa la contraseña maestra de administrador:");
-                if (pwd === "26zorras27") setShowAdminModal(true);
-                else if (pwd !== null) alert("Contraseña incorrecta.");
+            // BOTONES DE TENDENCIA RÁPIDA
+            const guardarPickRapido = async (partidoId, golesL, golesV) => {
+                if (!profile || profile.locked) return;
+                const picksActuales = profile.picks || {};
+                const nuevoPick = { ...picksActuales, [partidoId]: { golesLocal: golesL, golesVisitante: golesV } };
+                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
             };
 
-            const handleDeleteUser = async (userId, userName) => {
-                if(confirm(`¿Estás seguro que deseas ELIMINAR al usuario "${userName}" permanentemente?`)) {
-                    await db.collection('usuarios').doc(userId).delete();
-                    if (userId === user.uid) {
-                        localStorage.removeItem('quiniela_user_uid');
-                        window.location.reload();
-                    }
+            // BOTÓN DE BLOQUEO MAESTRO
+            const handleBloquearQuiniela = async () => {
+                const totalPicks = Object.keys(profile.picks || {}).length;
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás completamente seguro de GUARDAR Y BLOQUEAR tu quiniela? Una vez hecho, entrarás al Ranking Oficial y no podrás modificar tus resultados.`)) {
+                    await db.collection('usuarios').doc(user.uid).update({ locked: true });
+                    setProfile({...profile, locked: true});
+                    alert("¡Quiniela Bloqueada Exitosamente! Ya estás participando en el Ranking Oficial.");
                 }
+            };
+
+            // ==========================================
+            // 3. PANEL DE ADMINISTRADOR & GENERADOR
+            // ==========================================
+            const cargarPartidosBase = async () => {
+                const gruposData = {
+                    'Grupo A': ['México', 'Camerún', 'Croacia', 'Brasil'],
+                    'Grupo B': ['Canadá', 'Marruecos', 'Ecuador', 'Italia'],
+                    'Grupo C': ['Estados Unidos', 'Uruguay', 'Senegal', 'Japón'],
+                    'Grupo D': ['Francia', 'Colombia', 'Corea del Sur', 'Nigeria'],
+                    'Grupo E': ['España', 'Costa Rica', 'Inglaterra', 'Suiza'],
+                    'Grupo F': ['Argentina', 'Alemania', 'Portugal', 'Países Bajos'],
+                    'Grupo G': ['Bélgica', 'Chile', 'Arabia Saudita', 'Serbia'],
+                    'Grupo H': ['Perú', 'Suecia', 'Argelia', 'Australia'],
+                    'Grupo I': ['Dinamarca', 'Irán', 'Venezuela', 'Gales'],
+                    'Grupo J': ['Polonia', 'Egipto', 'Paraguay', 'Austria'],
+                    'Grupo K': ['Ucrania', 'Mali', 'Nueva Zelanda', 'Turquía'],
+                    'Grupo L': ['Qatar', 'Jamaica', 'Noruega', 'Honduras']
+                };
+                
+                const sedes = ['Estadio Azteca, CDMX', 'MetLife Stadium, NY', 'SoFi Stadium, LA', 'Hard Rock, Miami', 'AT&T Stadium, Dallas', 'BC Place, Vancouver'];
+                let ordenGlobal = 1;
+                const batch = db.batch();
+
+                // Generador Matemático de Enfrentamientos Únicos (6 por grupo = 72 total)
+                Object.keys(gruposData).forEach(grupo => {
+                    const eq = gruposData[grupo];
+                    const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2] ];
+                    
+                    enfrentamientos.forEach((enf, index) => {
+                        const ref = db.collection('partidos').doc();
+                        batch.set(ref, {
+                            orden: ordenGlobal,
+                            grupo: grupo,
+                            local: eq[enf[0]],
+                            visitante: eq[enf[1]],
+                            fecha: `Jornada ${Math.floor(index/2) + 1}`,
+                            hora: 'Por definir',
+                            sede: sedes[ordenGlobal % 6],
+                            estado: 'pendiente', golesL_real: null, golesV_real: null
+                        });
+                        ordenGlobal++;
+                    });
+                });
+
+                try {
+                    alert("Generando 72 partidos sin repeticiones... Espera un momento.");
+                    await batch.commit();
+                    alert("¡Los 72 partidos fueron creados y organizados correctamente!");
+                } catch(e) { alert("Error al generar partidos."); }
             };
 
             const borrarTodosLosPartidos = async () => {
-                if(confirm("¿Seguro que deseas borrar TODOS los partidos?")) {
-                    try {
-                        const snapshot = await db.collection('partidos').get();
-                        const batch = db.batch();
-                        snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                        await batch.commit();
-                        alert("Torneo limpiado con éxito.");
-                    } catch(e) { alert("Error borrando partidos."); }
+                if(confirm("¿Borrar todos los partidos?")) {
+                    const snapshot = await db.collection('partidos').get();
+                    const batch = db.batch();
+                    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+                    await batch.commit();
+                    alert("Torneo limpiado.");
                 }
             };
 
-            const cargarPartidosBase = async () => {
-                const baseMatch = { estado: 'pendiente', golesL_real: null, golesV_real: null };
-                const llavesIniciales = [
-                    // GRUPO A (México, Camerún, Croacia, Brasil)
-                    { orden: 1, grupo: 'Grupo A', local: 'México', visitante: 'Camerún', fecha: '11 Jun', hora: '13:00', sede: 'Estadio Azteca, CDMX', ...baseMatch },
-                    { orden: 2, grupo: 'Grupo A', local: 'Croacia', visitante: 'Brasil', fecha: '12 Jun', hora: '15:00', sede: 'Estadio Akron, GDL', ...baseMatch },
-                    { orden: 3, grupo: 'Grupo A', local: 'México', visitante: 'Croacia', fecha: '18 Jun', hora: '14:00', sede: 'Estadio Azteca, CDMX', ...baseMatch },
-                    { orden: 4, grupo: 'Grupo A', local: 'Camerún', visitante: 'Brasil', fecha: '19 Jun', hora: '16:00', sede: 'Estadio BBVA, MTY', ...baseMatch },
-                    { orden: 5, grupo: 'Grupo A', local: 'México', visitante: 'Brasil', fecha: '24 Jun', hora: '13:00', sede: 'Estadio Azteca, CDMX', ...baseMatch },
-                    { orden: 6, grupo: 'Grupo A', local: 'Camerún', visitante: 'Croacia', fecha: '24 Jun', hora: '13:00', sede: 'Estadio Akron, GDL', ...baseMatch },
-                    // GRUPO B (Canadá, Marruecos, Ecuador, Italia)
-                    { orden: 7, grupo: 'Grupo B', local: 'Canadá', visitante: 'Marruecos', fecha: '12 Jun', hora: '12:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    { orden: 8, grupo: 'Grupo B', local: 'Ecuador', visitante: 'Italia', fecha: '12 Jun', hora: '18:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                    { orden: 9, grupo: 'Grupo B', local: 'Canadá', visitante: 'Ecuador', fecha: '18 Jun', hora: '12:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    { orden: 10, grupo: 'Grupo B', local: 'Marruecos', visitante: 'Italia', fecha: '18 Jun', hora: '18:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                    { orden: 11, grupo: 'Grupo B', local: 'Canadá', visitante: 'Italia', fecha: '24 Jun', hora: '16:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                    { orden: 12, grupo: 'Grupo B', local: 'Marruecos', visitante: 'Ecuador', fecha: '24 Jun', hora: '16:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    // GRUPO C (Estados Unidos, Uruguay, Senegal, Japón)
-                    { orden: 13, grupo: 'Grupo C', local: 'Estados Unidos', visitante: 'Uruguay', fecha: '13 Jun', hora: '14:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    { orden: 14, grupo: 'Grupo C', local: 'Senegal', visitante: 'Japón', fecha: '13 Jun', hora: '17:00', sede: 'Lumen Field, Seattle', ...baseMatch },
-                    { orden: 15, grupo: 'Grupo C', local: 'Estados Unidos', visitante: 'Senegal', fecha: '19 Jun', hora: '14:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    { orden: 16, grupo: 'Grupo C', local: 'Uruguay', visitante: 'Japón', fecha: '19 Jun', hora: '17:00', sede: 'Levi’s Stadium, SF', ...baseMatch },
-                    { orden: 17, grupo: 'Grupo C', local: 'Estados Unidos', visitante: 'Japón', fecha: '25 Jun', hora: '15:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    { orden: 18, grupo: 'Grupo C', local: 'Uruguay', visitante: 'Senegal', fecha: '25 Jun', hora: '15:00', sede: 'Lumen Field, Seattle', ...baseMatch },
-                    // GRUPO D (Francia, Colombia, Corea del Sur, Nigeria)
-                    { orden: 19, grupo: 'Grupo D', local: 'Francia', visitante: 'Colombia', fecha: '14 Jun', hora: '13:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 20, grupo: 'Grupo D', local: 'Corea del Sur', visitante: 'Nigeria', fecha: '14 Jun', hora: '16:00', sede: 'Gillette Stadium, Boston', ...baseMatch },
-                    { orden: 21, grupo: 'Grupo D', local: 'Francia', visitante: 'Corea del Sur', fecha: '20 Jun', hora: '13:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 22, grupo: 'Grupo D', local: 'Colombia', visitante: 'Nigeria', fecha: '20 Jun', hora: '16:00', sede: 'Lincoln Financial, PHI', ...baseMatch },
-                    { orden: 23, grupo: 'Grupo D', local: 'Francia', visitante: 'Nigeria', fecha: '26 Jun', hora: '14:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 24, grupo: 'Grupo D', local: 'Colombia', visitante: 'Corea del Sur', fecha: '26 Jun', hora: '14:00', sede: 'Gillette Stadium, Boston', ...baseMatch },
-                    // GRUPO E (España, Costa Rica, Inglaterra, Suiza)
-                    { orden: 25, grupo: 'Grupo E', local: 'España', visitante: 'Costa Rica', fecha: '14 Jun', hora: '15:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    { orden: 26, grupo: 'Grupo E', local: 'Inglaterra', visitante: 'Suiza', fecha: '15 Jun', hora: '13:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    { orden: 27, grupo: 'Grupo E', local: 'España', visitante: 'Inglaterra', fecha: '20 Jun', hora: '15:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    { orden: 28, grupo: 'Grupo E', local: 'Costa Rica', visitante: 'Suiza', fecha: '21 Jun', hora: '13:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    { orden: 29, grupo: 'Grupo E', local: 'España', visitante: 'Suiza', fecha: '26 Jun', hora: '16:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    { orden: 30, grupo: 'Grupo E', local: 'Costa Rica', visitante: 'Inglaterra', fecha: '26 Jun', hora: '16:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    // GRUPO F (Argentina, Alemania, Portugal, Países Bajos)
-                    { orden: 31, grupo: 'Grupo F', local: 'Argentina', visitante: 'Alemania', fecha: '15 Jun', hora: '16:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 32, grupo: 'Grupo F', local: 'Portugal', visitante: 'Países Bajos', fecha: '15 Jun', hora: '19:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    { orden: 33, grupo: 'Grupo F', local: 'Argentina', visitante: 'Portugal', fecha: '21 Jun', hora: '16:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 34, grupo: 'Grupo F', local: 'Alemania', visitante: 'Países Bajos', fecha: '21 Jun', hora: '19:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    { orden: 35, grupo: 'Grupo F', local: 'Argentina', visitante: 'Países Bajos', fecha: '27 Jun', hora: '15:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 36, grupo: 'Grupo F', local: 'Alemania', visitante: 'Portugal', fecha: '27 Jun', hora: '15:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    // GRUPO G (Bélgica, Chile, Arabia Saudita, Serbia)
-                    { orden: 37, grupo: 'Grupo G', local: 'Bélgica', visitante: 'Chile', fecha: '16 Jun', hora: '13:00', sede: 'Arrowhead, Kansas', ...baseMatch },
-                    { orden: 38, grupo: 'Grupo G', local: 'Arabia Saudita', visitante: 'Serbia', fecha: '16 Jun', hora: '16:00', sede: 'Lumen Field, Seattle', ...baseMatch },
-                    { orden: 39, grupo: 'Grupo G', local: 'Bélgica', visitante: 'Arabia Saudita', fecha: '22 Jun', hora: '13:00', sede: 'Arrowhead, Kansas', ...baseMatch },
-                    { orden: 40, grupo: 'Grupo G', local: 'Chile', visitante: 'Serbia', fecha: '22 Jun', hora: '16:00', sede: 'Lumen Field, Seattle', ...baseMatch },
-                    { orden: 41, grupo: 'Grupo G', local: 'Bélgica', visitante: 'Serbia', fecha: '27 Jun', hora: '18:00', sede: 'Arrowhead, Kansas', ...baseMatch },
-                    { orden: 42, grupo: 'Grupo G', local: 'Chile', visitante: 'Arabia Saudita', fecha: '27 Jun', hora: '18:00', sede: 'Lumen Field, Seattle', ...baseMatch },
-                    // GRUPO H (Perú, Suecia, Argelia, Australia)
-                    { orden: 43, grupo: 'Grupo H', local: 'Perú', visitante: 'Suecia', fecha: '16 Jun', hora: '15:00', sede: 'Levi’s Stadium, SF', ...baseMatch },
-                    { orden: 44, grupo: 'Grupo H', local: 'Argelia', visitante: 'Australia', fecha: '16 Jun', hora: '19:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    { orden: 45, grupo: 'Grupo H', local: 'Perú', visitante: 'Argelia', fecha: '22 Jun', hora: '15:00', sede: 'Levi’s Stadium, SF', ...baseMatch },
-                    { orden: 46, grupo: 'Grupo H', local: 'Suecia', visitante: 'Australia', fecha: '22 Jun', hora: '19:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    { orden: 47, grupo: 'Grupo H', local: 'Perú', visitante: 'Australia', fecha: '28 Jun', hora: '13:00', sede: 'Levi’s Stadium, SF', ...baseMatch },
-                    { orden: 48, grupo: 'Grupo H', local: 'Suecia', visitante: 'Argelia', fecha: '28 Jun', hora: '13:00', sede: 'SoFi Stadium, LA', ...baseMatch },
-                    // GRUPO I (Dinamarca, Irán, Venezuela, Gales)
-                    { orden: 49, grupo: 'Grupo I', local: 'Dinamarca', visitante: 'Irán', fecha: '17 Jun', hora: '13:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    { orden: 50, grupo: 'Grupo I', local: 'Venezuela', visitante: 'Gales', fecha: '17 Jun', hora: '16:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    { orden: 51, grupo: 'Grupo I', local: 'Dinamarca', visitante: 'Venezuela', fecha: '23 Jun', hora: '13:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    { orden: 52, grupo: 'Grupo I', local: 'Irán', visitante: 'Gales', fecha: '23 Jun', hora: '16:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    { orden: 53, grupo: 'Grupo I', local: 'Dinamarca', visitante: 'Gales', fecha: '28 Jun', hora: '16:00', sede: 'Mercedes-Benz, ATL', ...baseMatch },
-                    { orden: 54, grupo: 'Grupo I', local: 'Irán', visitante: 'Venezuela', fecha: '28 Jun', hora: '16:00', sede: 'Hard Rock Stadium, MIA', ...baseMatch },
-                    // GRUPO J (Polonia, Egipto, Paraguay, Austria)
-                    { orden: 55, grupo: 'Grupo J', local: 'Polonia', visitante: 'Egipto', fecha: '17 Jun', hora: '15:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 56, grupo: 'Grupo J', local: 'Paraguay', visitante: 'Austria', fecha: '17 Jun', hora: '18:00', sede: 'Gillette Stadium, Boston', ...baseMatch },
-                    { orden: 57, grupo: 'Grupo J', local: 'Polonia', visitante: 'Paraguay', fecha: '23 Jun', hora: '15:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 58, grupo: 'Grupo J', local: 'Egipto', visitante: 'Austria', fecha: '23 Jun', hora: '18:00', sede: 'Gillette Stadium, Boston', ...baseMatch },
-                    { orden: 59, grupo: 'Grupo J', local: 'Polonia', visitante: 'Austria', fecha: '29 Jun', hora: '14:00', sede: 'MetLife Stadium, NY/NJ', ...baseMatch },
-                    { orden: 60, grupo: 'Grupo J', local: 'Egipto', visitante: 'Paraguay', fecha: '29 Jun', hora: '14:00', sede: 'Gillette Stadium, Boston', ...baseMatch },
-                    // GRUPO K (Ucrania, Mali, Nueva Zelanda, Turquía)
-                    { orden: 61, grupo: 'Grupo K', local: 'Ucrania', visitante: 'Mali', fecha: '18 Jun', hora: '16:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 62, grupo: 'Grupo K', local: 'Nueva Zelanda', visitante: 'Turquía', fecha: '18 Jun', hora: '19:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    { orden: 63, grupo: 'Grupo K', local: 'Ucrania', visitante: 'Nueva Zelanda', fecha: '24 Jun', hora: '16:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 64, grupo: 'Grupo K', local: 'Mali', visitante: 'Turquía', fecha: '24 Jun', hora: '19:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    { orden: 65, grupo: 'Grupo K', local: 'Ucrania', visitante: 'Turquía', fecha: '29 Jun', hora: '17:00', sede: 'AT&T Stadium, Dallas', ...baseMatch },
-                    { orden: 66, grupo: 'Grupo K', local: 'Mali', visitante: 'Nueva Zelanda', fecha: '29 Jun', hora: '17:00', sede: 'NRG Stadium, Houston', ...baseMatch },
-                    // GRUPO L (Qatar, Jamaica, Noruega, Honduras)
-                    { orden: 67, grupo: 'Grupo L', local: 'Qatar', visitante: 'Jamaica', fecha: '19 Jun', hora: '12:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    { orden: 68, grupo: 'Grupo L', local: 'Noruega', visitante: 'Honduras', fecha: '19 Jun', hora: '18:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                    { orden: 69, grupo: 'Grupo L', local: 'Qatar', visitante: 'Noruega', fecha: '25 Jun', hora: '12:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    { orden: 70, grupo: 'Grupo L', local: 'Jamaica', visitante: 'Honduras', fecha: '25 Jun', hora: '18:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                    { orden: 71, grupo: 'Grupo L', local: 'Qatar', visitante: 'Honduras', fecha: '30 Jun', hora: '15:00', sede: 'BMO Field, Toronto', ...baseMatch },
-                    { orden: 72, grupo: 'Grupo L', local: 'Jamaica', visitante: 'Noruega', fecha: '30 Jun', hora: '15:00', sede: 'BC Place, Vancouver', ...baseMatch },
-                ];
-                try {
-                    for(let i=0; i<llavesIniciales.length; i++) {
-                        await db.collection('partidos').add(llavesIniciales[i]);
-                    }
-                    alert("¡Los 72 partidos de Fase de Grupos cargados con éxito!");
-                } catch(e) { alert("Error cargando partidos."); }
-            };
-
             const calcularPuntosGlobal = async () => {
-                try {
-                    const snapshotUsuarios = await db.collection('usuarios').get();
-                    const batch = db.batch();
-
-                    snapshotUsuarios.docs.forEach(doc => {
-                        const dataUsuario = doc.data();
-                        const susPicks = dataUsuario.picks || {};
-                        let puntosTotales = 0;
-
-                        partidos.forEach(partido => {
-                            if (partido.estado === 'finalizado') {
-                                const pickL = susPicks[partido.id]?.golesLocal;
-                                const pickV = susPicks[partido.id]?.golesVisitante;
-                                
-                                if (pickL !== undefined && pickV !== undefined && pickL !== '' && pickV !== '') {
-                                    let tendenciaReal = 'ninguna';
-                                    if (partido.golesL_real > partido.golesV_real) tendenciaReal = 'local';
-                                    else if (partido.golesL_real < partido.golesV_real) tendenciaReal = 'visitante';
-                                    else if (partido.golesL_real === partido.golesV_real) tendenciaReal = 'empate';
-
-                                    let tendenciaUser = 'ninguna';
-                                    if (pickL > pickV) tendenciaUser = 'local';
-                                    else if (pickL < pickV) tendenciaUser = 'visitante';
-                                    else if (pickL === pickV) tendenciaUser = 'empate';
-
-                                    if (tendenciaReal !== 'ninguna' && tendenciaReal === tendenciaUser) {
-                                        puntosTotales += 1;
-                                    }
-                                }
+                const snapshotUsuarios = await db.collection('usuarios').get();
+                const batch = db.batch();
+                snapshotUsuarios.docs.forEach(doc => {
+                    const dataUsuario = doc.data();
+                    const susPicks = dataUsuario.picks || {};
+                    let puntosTotales = 0;
+                    partidos.forEach(p => {
+                        if (p.estado === 'finalizado') {
+                            const pickL = susPicks[p.id]?.golesLocal; const pickV = susPicks[p.id]?.golesVisitante;
+                            if (pickL !== undefined && pickV !== undefined && pickL !== '' && pickV !== '') {
+                                let tReal = p.golesL_real > p.golesV_real ? 'L' : (p.golesL_real < p.golesV_real ? 'V' : 'E');
+                                let tUser = pickL > pickV ? 'L' : (pickL < pickV ? 'V' : 'E');
+                                if (tReal === tUser) puntosTotales += 1;
                             }
-                        });
-                        batch.update(doc.ref, { puntos: puntosTotales });
+                        }
                     });
-
-                    await batch.commit();
-                    alert("¡Puntos recalculados exitosamente basados en la tendencia!");
-                } catch(error) { alert("Hubo un error al calcular los puntos."); }
-            };
-
-            const handleSyncAPI = async () => {
-                setIsSyncing(true);
-                try {
-                    const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
-                        method: "GET",
-                        headers: { "x-apisports-key": API_KEY }
-                    });
-                    
-                    if (!res.ok) throw new Error("Error en la respuesta de la API");
-                    const data = await res.json();
-                    console.log("Datos de API-Football:", data);
-                    alert("Conexión con API Exitosa. Revisa la consola.");
-                } catch (error) {
-                    alert("Hubo un error al conectar con la API.");
-                } finally { setIsSyncing(false); }
+                    batch.update(doc.ref, { puntos: puntosTotales });
+                });
+                await batch.commit();
+                alert("Ranking actualizado.");
             };
 
             // ==========================================
-            // 4. RENDERIZADO
+            // 4. RENDERIZADO UI
             // ==========================================
-            if (isLoading && !isLoginExiting) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-[#00623B] font-display text-2xl font-black text-white">
-                        <div className="animate-pulse flex items-center gap-2">
-                            <Icon name="loader" size={28} className="animate-spin" /> CARGANDO...
-                        </div>
-                    </div>
-                );
-            }
+            if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#00623B] font-display text-2xl font-black text-white">CARGANDO...</div>;
 
             if (!user || !profile?.username || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                        <div className="text-center mb-10 animate-fade-in">
-                            <h1 className="text-9xl font-black text-white drop-shadow-2xl font-display mb-0 tracking-tighter italic">26</h1>
-                            <h2 className="text-2xl font-black tracking-widest text-[#C5A97D] uppercase">Quiniela Mundial</h2>
-                        </div>
-                        <form onSubmit={handleLogin} className="w-full max-w-sm bg-white p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-center animate-scale-in">
-                            <p className="text-gray-500 mb-6 font-bold text-sm">Ingresa tu nombre para jugar o recuperar tus predicciones.</p>
-                            <input 
-                                type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tu nombre aquí..."
-                                className="w-full px-4 py-4 rounded-xl border-4 border-gray-100 text-black font-black focus:border-[#00623B] focus:outline-none mb-6 text-center text-2xl uppercase transition-colors"
-                                required
-                            />
-                            <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] text-white font-black py-4 rounded-xl hover:bg-red-700 transition-transform hover:scale-[1.02] active:scale-95 shadow-xl flex items-center justify-center gap-2 disabled:opacity-50">
-                                {isLoading ? <Icon name="loader" className="animate-spin" /> : <Icon name="play" size={20} />} 
-                                {isLoading ? 'CONECTANDO...' : 'ENTRAR AL MUNDIAL'}
-                            </button>
+                        <div className="text-center mb-10"><h1 className="text-9xl font-black text-white font-display italic">26</h1></div>
+                        <form onSubmit={handleLogin} className="w-full max-w-sm bg-white p-8 rounded-3xl text-center">
+                            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tu nombre..." className="w-full px-4 py-4 rounded-xl border-4 border-gray-100 text-black font-black focus:border-[#00623B] outline-none mb-6 text-center text-2xl uppercase" required />
+                            <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] text-white font-black py-4 rounded-xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">ENTRAR AL MUNDIAL</button>
                         </form>
-                        <div className="fixed bottom-2 right-4 text-[10px] text-white/30 font-black uppercase tracking-widest pointer-events-none">zorras</div>
                     </div>
                 );
             }
 
+            // Agrupación visual de partidos para computadora
+            const gruposNombres = [...new Set(partidos.map(p => p.grupo))];
+
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
                     
-                    <div className="bg-[#00623B] pt-safe pb-4 px-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)] sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
-                        <div className="flex justify-between items-center max-w-2xl mx-auto pt-4 w-full">
-                            <h1 className="font-display font-black text-2xl italic tracking-tight flex items-center gap-1">
-                                <span className="text-white drop-shadow-md">FIFA</span>
-                                <span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span>
+                    {/* Header Premium */}
+                    <div className="bg-[#00623B] pt-safe pb-4 px-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
+                        <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full">
+                            <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
+                                <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md">26</span>
                             </h1>
-                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-white/10 max-w-[50%] backdrop-blur-sm">
-                                <Icon name="user" size={14} className="text-[#C5A97D]" />
-                                <span className="font-bold text-sm uppercase truncate text-white">{profile.username}</span>
+                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-white/10">
+                                <span className="font-bold text-sm uppercase text-white">{profile.username}</span>
                             </div>
                         </div>
-                        
-                        <div className="flex gap-2 mt-6 max-w-2xl mx-auto overflow-x-auto hide-scrollbar pb-2 px-1">
+                        <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2">
                             {['Grupos', 'Eliminatoria', 'Ranking'].map(tab => (
-                                <button 
-                                    key={tab} onClick={() => setActiveTab(tab.toLowerCase())}
-                                    className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 duration-300 ${activeTab === tab.toLowerCase() ? 'bg-white text-[#53121F] shadow-[0_4px_15px_rgba(255,255,255,0.3)] scale-105' : 'bg-black/20 text-white/80 hover:bg-black/40'}`}
-                                >
+                                <button key={tab} onClick={() => setActiveTab(tab.toLowerCase())} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.toLowerCase() ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80 hover:bg-black/40'}`}>
                                     {tab === 'Grupos' ? 'Fase de Grupos' : tab === 'Eliminatoria' ? 'Fase Eliminatoria' : tab}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    <main className="max-w-2xl mx-auto p-4 pt-6 space-y-4 w-full">
+                    <main className="max-w-6xl mx-auto p-4 pt-6 space-y-4 w-full">
                         
-                        {/* ====== FASE DE GRUPOS ====== */}
+                        {/* ====== FASE DE GRUPOS (COMPUTADORA Y CELULAR) ====== */}
                         {activeTab === 'grupos' && (
-                            <div className="space-y-5 animate-fade-in">
-                                {partidos.length === 0 ? (
-                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10">
-                                        <Icon name="calendar-x" size={56} className="mx-auto mb-4 opacity-50 text-[#C5A97D]" />
-                                        <p className="font-bold text-xl font-display">El torneo está vacío</p>
-                                        <p className="text-sm mt-2 font-semibold">Dile al administrador que cargue los partidos.</p>
+                            <div className="animate-fade-in">
+                                
+                                {/* BARRA DE PROGRESO Y BLOQUEO */}
+                                <div className="bg-[#033B25] p-6 rounded-3xl border border-[#00623B] flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
+                                    <div className="mb-4 md:mb-0 text-center md:text-left">
+                                        <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
+                                        <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} de 72 partidos.</p>
                                     </div>
+                                    <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] hover:bg-red-700 text-white shadow-[0_5px_15px_rgba(211,17,69,0.4)] hover:scale-105'}`}>
+                                        <Icon name={profile.locked ? "lock" : "unlock"} size={20} />
+                                        {profile.locked ? 'QUINIELA BLOQUEADA' : 'GUARDAR Y BLOQUEAR'}
+                                    </button>
+                                </div>
+
+                                {partidos.length === 0 ? (
+                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">Torneo vacío.</p></div>
                                 ) : (
-                                    partidos.map(partido => (
-                                        <div key={partido.id} className="panini-card rounded-2xl p-5 flex flex-col items-center relative overflow-hidden transition-transform hover:scale-[1.01]">
+                                    gruposNombres.map(grupo => (
+                                        <div key={grupo} className="mb-12">
+                                            <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             
-                                            <div className="w-full flex justify-between items-center mb-4 border-b border-white/10 pb-3">
-                                                <div className="text-[#C5A97D] text-[10px] font-black uppercase tracking-widest bg-black/40 px-2 py-1 rounded shadow-inner">
-                                                    {partido.grupo}
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-white text-xs font-bold">{partido.fecha} • {partido.hora}</div>
-                                                    <div className="text-[#C5A97D]/80 text-[9px] font-black uppercase tracking-wider mt-0.5">{partido.sede}</div>
-                                                </div>
-                                            </div>
+                                            {/* RESPONSIVO: 1 Columna en Celular, 2 en Tablet, 3 en PC */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {partidos.filter(p => p.grupo === grupo).map(partido => {
+                                                    const pickL = profile.picks?.[partido.id]?.golesLocal ?? '';
+                                                    const pickV = profile.picks?.[partido.id]?.golesVisitante ?? '';
+                                                    
+                                                    // Detectar tendencia visual actual
+                                                    let activeTrend = 'ninguna';
+                                                    if(pickL !== '' && pickV !== '') {
+                                                        if(pickL > pickV) activeTrend = 'local';
+                                                        else if(pickL < pickV) activeTrend = 'visitante';
+                                                        else activeTrend = 'empate';
+                                                    }
 
-                                            <div className="flex items-center justify-between w-full gap-2">
-                                                {/* Local con Bandera */}
-                                                <div className="flex-1 flex justify-end items-center gap-2">
-                                                    <span className="font-black text-lg sm:text-2xl truncate drop-shadow-md text-right">{partido.local}</span>
-                                                    <span className="text-2xl drop-shadow-md">{getBandera(partido.local)}</span>
-                                                </div>
-                                                
-                                                {/* Inputs de Goles */}
-                                                <div className="flex flex-col items-center gap-1 mx-2">
-                                                    <div className="flex items-center gap-2 bg-black/50 p-2.5 rounded-xl border border-white/10 shadow-inner">
-                                                        <input 
-                                                            type="number" min="0" value={profile.picks?.[partido.id]?.golesLocal ?? ''} onChange={(e) => guardarPrediccion(partido.id, 'golesLocal', e.target.value)} 
-                                                            className="w-10 h-10 sm:w-12 sm:h-12 text-center bg-white text-[#53121F] font-black text-xl sm:text-2xl rounded-lg focus:ring-4 focus:ring-[#D31145] outline-none transition-all shadow-sm" disabled={partido.estado === 'finalizado'}
-                                                        />
-                                                        <span className="text-[#C5A97D] font-black text-xl">-</span>
-                                                        <input 
-                                                            type="number" min="0" value={profile.picks?.[partido.id]?.golesVisitante ?? ''} onChange={(e) => guardarPrediccion(partido.id, 'golesVisitante', e.target.value)} 
-                                                            className="w-10 h-10 sm:w-12 sm:h-12 text-center bg-white text-[#53121F] font-black text-xl sm:text-2xl rounded-lg focus:ring-4 focus:ring-[#D31145] outline-none transition-all shadow-sm" disabled={partido.estado === 'finalizado'}
-                                                        />
-                                                    </div>
-                                                    {partido.estado === 'finalizado' && (
-                                                        <div className="text-[10px] bg-[#D31145] text-white px-2 py-0.5 rounded font-black uppercase tracking-widest shadow-md mt-1">Finalizado</div>
-                                                    )}
-                                                </div>
+                                                    return (
+                                                        <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
+                                                            {profile.locked && <div className="absolute inset-0 bg-black/10 pointer-events-none z-10"></div>}
+                                                            
+                                                            <div className="w-full flex justify-between items-center mb-5 border-b border-white/10 pb-3">
+                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
+                                                                <div className="flex items-center gap-1 text-[#C5A97D]/80 text-[10px] font-black tracking-widest uppercase"><Icon name="map-pin" size={12}/> {partido.sede}</div>
+                                                            </div>
 
-                                                {/* Visitante con Bandera */}
-                                                <div className="flex-1 flex justify-start items-center gap-2">
-                                                    <span className="text-2xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                                                    <span className="font-black text-lg sm:text-2xl truncate drop-shadow-md text-left">{partido.visitante}</span>
-                                                </div>
+                                                            <div className="flex items-center justify-between w-full gap-2 mb-6">
+                                                                <div className="flex-1 flex flex-col items-center gap-2">
+                                                                    <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
+                                                                    <span className="font-black text-base text-center truncate w-full text-white/90">{partido.local}</span>
+                                                                </div>
+                                                                
+                                                                <div className="flex items-center gap-2 bg-black/40 p-3 rounded-2xl border border-white/5 shadow-inner">
+                                                                    <input type="number" value={pickL} onChange={(e) => guardarPrediccion(partido.id, 'golesLocal', e.target.value)} disabled={profile.locked || partido.estado==='finalizado'} className="w-12 h-12 text-center bg-white text-[#53121F] font-black text-2xl rounded-xl focus:ring-4 focus:ring-[#D31145] outline-none shadow-sm disabled:bg-gray-300" />
+                                                                    <span className="text-[#C5A97D] font-black text-lg">-</span>
+                                                                    <input type="number" value={pickV} onChange={(e) => guardarPrediccion(partido.id, 'golesVisitante', e.target.value)} disabled={profile.locked || partido.estado==='finalizado'} className="w-12 h-12 text-center bg-white text-[#53121F] font-black text-2xl rounded-xl focus:ring-4 focus:ring-[#D31145] outline-none shadow-sm disabled:bg-gray-300" />
+                                                                </div>
+
+                                                                <div className="flex-1 flex flex-col items-center gap-2">
+                                                                    <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
+                                                                    <span className="font-black text-base text-center truncate w-full text-white/90">{partido.visitante}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* BOTONES DE TENDENCIA */}
+                                                            <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
+                                                                <button onClick={() => guardarPickRapido(partido.id, 1, 0)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'local' ? 'bg-[#D31145] text-white shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Local</button>
+                                                                <button onClick={() => guardarPickRapido(partido.id, 0, 0)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'empate' ? 'bg-[#C5A97D] text-[#53121F] shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Empate</button>
+                                                                <button onClick={() => guardarPickRapido(partido.id, 0, 1)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'visitante' ? 'bg-[#00623B] text-white shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Visita</button>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
                                     ))
@@ -517,112 +399,63 @@
 
                         {/* ====== FASE ELIMINATORIA ====== */}
                         {activeTab === 'eliminatoria' && (
-                            <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center mx-2 animate-scale-in mt-8 relative overflow-hidden">
-                                <div className="absolute inset-0 bg-black/20 z-0"></div>
-                                <Icon name="lock" size={64} className="text-[#C5A97D] mb-6 opacity-90 drop-shadow-lg z-10" />
-                                <h3 className="text-3xl font-display font-black mb-4 text-white drop-shadow-md z-10">FASE BLOQUEADA</h3>
-                                <p className="text-white/80 font-bold max-w-sm mx-auto leading-relaxed z-10">
-                                    Las llaves de la Fase Eliminatoria se revelarán y desbloquearán el 
-                                    <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black inline-block transform -skew-x-6 shadow-md">28 de Junio de 2026</span>
-                                    una vez que la FIFA anuncie oficialmente las selecciones clasificadas.
-                                </p>
+                            <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8 relative">
+                                <Icon name="lock" size={64} className="text-[#C5A97D] mb-6 opacity-90 drop-shadow-lg" />
+                                <h3 className="text-3xl font-display font-black mb-4 text-white">FASE BLOQUEADA</h3>
+                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span> una vez que la FIFA anuncie los clasificados.</p>
                             </div>
                         )}
 
                         {/* ====== RANKING ====== */}
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in">
-                                <div className="panini-gradient p-6 rounded-2xl shadow-xl text-center relative mx-2 mb-6 border border-[#C5A97D]/50">
-                                    <h2 className="font-display font-black text-3xl mb-1 text-white drop-shadow-lg uppercase tracking-tight">Clasificación</h2>
-                                    <p className="text-[#C5A97D] text-[10px] font-black tracking-widest uppercase">1 Punto por Acierto de Tendencia</p>
-                                    
-                                    {/* Botón Admin 100% VISIBLE */}
-                                    <button onClick={handleAdminAccess} className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white/90 border border-[#C5A97D]/40 px-3 py-1.5 rounded-lg text-xs font-black tracking-widest transition-all shadow-md backdrop-blur-sm" title="Panel de Administración">
-                                        ⚙️ ADMIN
-                                    </button>
+                                <div className="panini-gradient p-8 rounded-3xl shadow-xl text-center relative mb-8">
+                                    <h2 className="font-display font-black text-4xl mb-2 text-white drop-shadow-lg uppercase tracking-tight">Ranking Oficial</h2>
+                                    <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo usuarios con Quiniela Bloqueada</p>
+                                    <button onClick={() => { if(prompt("Contraseña:")==="26zorras27") setShowAdminModal(true); }} className="absolute top-4 right-4 bg-black/40 hover:bg-black/70 text-white/90 border border-[#C5A97D]/30 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all backdrop-blur-sm">⚙️ ADMIN</button>
                                 </div>
                                 
-                                <div className="px-2 space-y-3">
-                                    {Object.values(predicciones).sort((a,b) => (b.puntos||0) - (a.puntos||0)).map((jugador, idx) => (
-                                        <div key={jugador.id} className={`p-4 rounded-2xl flex items-center justify-between shadow-lg transition-transform hover:scale-[1.02] ${jugador.id === profile.id ? 'bg-white text-black ring-4 ring-[#D31145]' : 'panini-card text-white'}`}>
-                                            <div className="flex items-center gap-4">
-                                                <span className={`font-display font-black text-3xl sm:text-4xl w-10 text-center ${jugador.id === profile.id ? 'text-[#00623B]' : 'text-[#C5A97D]'}`}>
-                                                    {idx + 1}
-                                                </span>
+                                {!profile.locked && (
+                                    <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6">
+                                        <p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Aún no apareces en el ranking. Debes ir a la Fase de Grupos y presionar "Guardar y Bloquear".</p>
+                                    </div>
+                                )}
+                                
+                                <div className="space-y-4">
+                                    {Object.values(predicciones).filter(j => j.locked).sort((a,b) => (b.puntos||0) - (a.puntos||0)).map((jugador, idx) => (
+                                        <div key={jugador.id} className={`p-5 rounded-3xl flex items-center justify-between shadow-lg transition-transform ${jugador.id === profile.id ? 'bg-white text-black ring-4 ring-[#D31145] scale-[1.02]' : 'panini-card text-white'}`}>
+                                            <div className="flex items-center gap-5">
+                                                <span className={`font-display font-black text-4xl w-12 text-center ${jugador.id === profile.id ? 'text-[#00623B]' : 'text-[#C5A97D]'}`}>{idx + 1}</span>
                                                 <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-black text-lg sm:text-xl leading-tight uppercase truncate max-w-[140px] drop-shadow-sm">{jugador.username}</span>
-                                                        {jugador.id === profile.id && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">TÚ</span>}
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="font-black text-xl uppercase truncate max-w-[180px]">{jugador.username}</span>
+                                                        {jugador.id === profile.id && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
                                                     </div>
-                                                    <span className={`text-xs font-bold uppercase tracking-wider ${jugador.id === profile.id ? 'text-gray-500' : 'text-[#C5A97D]/70'}`}>{Object.keys(jugador.picks || {}).length} picks</span>
+                                                    <span className={`text-xs font-bold uppercase tracking-wider ${jugador.id === profile.id ? 'text-gray-500' : 'text-[#C5A97D]/70'}`}><Icon name="lock" size={10} className="inline mr-1"/>Quiniela Bloqueada</span>
                                                 </div>
                                             </div>
-                                            <div className="text-right pr-2">
-                                                <div className="font-display font-black text-4xl sm:text-5xl leading-none drop-shadow-md">{jugador.puntos || 0}</div>
-                                                <div className={`text-[9px] font-black tracking-widest uppercase mt-1 ${jugador.id === profile.id ? 'text-[#D31145]' : 'text-white/50'}`}>Puntos</div>
+                                            <div className="text-right pr-4">
+                                                <div className="font-display font-black text-5xl leading-none">{jugador.puntos || 0}</div>
+                                                <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${jugador.id === profile.id ? 'text-[#D31145]' : 'text-white/50'}`}>Puntos</div>
                                             </div>
                                         </div>
                                     ))}
+                                    {Object.values(predicciones).filter(j => j.locked).length === 0 && <p className="text-center text-white/50 font-bold py-10">Nadie ha bloqueado su quiniela aún.</p>}
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    <div className="fixed bottom-2 right-4 text-[10px] text-white/10 font-black uppercase tracking-widest pointer-events-none z-0">zorras</div>
-
-                    {/* ====== MODAL DE ADMINISTRADOR ====== */}
+                    {/* ====== MODAL ADMIN ====== */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
-                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full shadow-[0_0_50px_rgba(197,169,125,0.2)] relative">
-                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white p-2 transition-colors bg-black/20 rounded-full"><Icon name="x" size={24} /></button>
-                                
-                                <div className="flex items-center gap-3 mb-6 border-b border-[#C5A97D]/20 pb-4">
-                                    <Icon name="settings" size={32} className="text-[#C5A97D]" />
-                                    <h2 className="font-display font-black text-2xl text-white tracking-wide">Panel de Control</h2>
-                                </div>
-                                
-                                <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                                    
-                                    <div className="p-5 bg-black/30 rounded-2xl border border-white/10 text-center shadow-inner">
-                                        <p className="text-[11px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Motor de Resultados</p>
-                                        <div className="space-y-3">
-                                            <button onClick={handleSyncAPI} disabled={isSyncing} className="w-full bg-[#00623B] hover:bg-[#00824B] border border-[#C5A97D]/50 text-white font-black py-3 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50">
-                                                <Icon name={isSyncing ? "loader" : "globe"} size={18} className={isSyncing ? "animate-spin" : ""} /> 
-                                                {isSyncing ? 'CONECTANDO API...' : '1. Sincronizar API-Football'}
-                                            </button>
-                                            <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 hover:scale-[1.02]">
-                                                <Icon name="calculator" size={18} /> 2. Recalcular Puntos (Ranking)
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-5 bg-black/30 rounded-2xl border border-white/10 text-center shadow-inner">
-                                        <p className="text-[11px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Torneo</p>
-                                        <div className="space-y-3">
-                                            <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border-2 border-[#D31145] text-[#D31145] font-black py-2.5 rounded-xl transition-all hover:bg-[#D31145] hover:text-white">
-                                                Borrar Todos los Partidos
-                                            </button>
-                                            <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl transition-all shadow-lg hover:bg-gray-100 flex items-center justify-center gap-2">
-                                                <Icon name="database" size={18} /> Cargar Partidos Base (72 Matches)
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-5 bg-black/30 rounded-2xl border border-white/10 shadow-inner">
-                                        <p className="text-[11px] text-[#C5A97D] font-black uppercase tracking-widest mb-4 text-center">Usuarios ({Object.values(predicciones).length})</p>
-                                        {Object.values(predicciones).length === 0 && <p className="text-sm text-white/50 text-center font-bold">No hay jugadores registrados.</p>}
-                                        <div className="space-y-2">
-                                            {Object.values(predicciones).map(j => (
-                                                <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5">
-                                                    <span className="font-bold text-sm uppercase truncate max-w-[150px]">{j.username}</span>
-                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors flex items-center gap-1">
-                                                        <Icon name="trash-2" size={14}/> 
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    
+                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
+                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2"><Icon name="x" size={24} /></button>
+                                <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-white/10 pb-4">Panel de Control</h2>
+                                <div className="space-y-4">
+                                    <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border-2 border-[#D31145] text-[#D31145] font-black py-3 rounded-xl hover:bg-[#D31145] hover:text-white transition-all">Paso 1: Borrar Torneo</button>
+                                    <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-4 rounded-xl shadow-lg transition-all">Paso 2: Generar 72 Partidos Exactos</button>
+                                    <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-4 rounded-xl shadow-lg mt-4">Forzar Cálculo de Puntos</button>
                                 </div>
                             </div>
                         </div>
