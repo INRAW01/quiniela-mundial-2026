@@ -57,7 +57,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // BANDERAS SOLO PARA LOS HOSTS CONFIRMADOS
+        // BANDERAS BASE (Se irán sumando según el sorteo)
         const BANDERAS = { 'México': '🇲🇽', 'Canadá': '🇨🇦', 'Estados Unidos': '🇺🇸' };
         const getBandera = (pais) => BANDERAS[pais] || '🏳️';
 
@@ -69,10 +69,33 @@
             return <i ref={ref} data-lucide={name}></i>;
         };
 
-        // NORMALIZADOR DE TEXTO PARA LA API
+        // NORMALIZADOR DE TEXTO PARA LA API (MATCH PERFECTO)
         const normalizeName = (str) => {
             if(!str) return "";
             return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        };
+
+        // TRADUCTOR DE API (Inglés -> Español) para que la base de datos entienda a la API de Football
+        const TRADUCTOR_API = {
+            "usa": "estados unidos",
+            "united states": "estados unidos",
+            "mexico": "mexico",
+            "canada": "canada",
+            "spain": "españa",
+            "germany": "alemania",
+            "england": "inglaterra",
+            "brazil": "brasil",
+            "france": "francia",
+            "netherlands": "paises bajos",
+            "italy": "italia",
+            "south korea": "corea del sur",
+            "japan": "japon"
+            // Nota: Aquí se agregarán los nombres de los clasificados finales en 2025.
+        };
+
+        const traducirNombre = (nombreIngles) => {
+            const normalizado = normalizeName(nombreIngles);
+            return TRADUCTOR_API[normalizado] || normalizado;
         };
 
         // ==========================================
@@ -149,7 +172,6 @@
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
                     
-                    // SOLUCIÓN A LA PANTALLA ROJA (Temporizador de transición)
                     setIsLoginExiting(true); 
                     setTimeout(() => {
                         setIsLoginExiting(false);
@@ -170,7 +192,7 @@
 
             const handleBloquearQuiniela = async () => {
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial?`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial? No podrás hacer cambios.`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
                     alert("¡Quiniela Bloqueada Exitosamente!");
@@ -178,10 +200,10 @@
             };
 
             // ==========================================
-            // 3. PANEL DE ADMINISTRADOR & GENERADOR OFICIAL
+            // 3. PANEL ADMIN & GENERADOR EXACTO FIFA 2026
             // ==========================================
             const cargarPartidosBase = async () => {
-                // ESTRUCTURA OFICIAL FIFA 2026 (HOSTS CONFIRMADOS, RESTO POR SORTEAR)
+                // ESTRUCTURA OFICIAL FIFA 2026 (12 Grupos, 72 Partidos)
                 const gruposData = {
                     'Grupo A': ['México', 'Equipo A2', 'Equipo A3', 'Equipo A4'],
                     'Grupo B': ['Canadá', 'Equipo B2', 'Equipo B3', 'Equipo B4'],
@@ -200,20 +222,32 @@
                 let ordenGlobal = 1;
                 const batch = db.batch();
 
-                Object.keys(gruposData).forEach(grupo => {
+                Object.keys(gruposData).forEach((grupo, idxGrupo) => {
                     const eq = gruposData[grupo];
-                    // Formato de 6 partidos por grupo
-                    const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2] ];
+                    // Formato FIFA: J1(1v2, 3v4), J2(1v3, 4v2), J3(4v1, 2v3)
+                    const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [3, 1], [3, 0], [1, 2] ];
                     
                     enfrentamientos.forEach((enf, index) => {
                         const ref = db.collection('partidos').doc();
                         
-                        // Si el partido es México vs A2, le ponemos sede oficial
-                        let sedeAsignada = 'Sede por confirmar';
-                        let fechaAsignada = `Jornada ${Math.floor(index/2) + 1}`;
-                        
+                        let sedeAsignada = 'Sede por sorteo';
+                        let fechaAsignada = 'Junio 2026';
+
+                        // --- DATOS CONFIRMADOS OFICIALES POR FIFA (Mundial 2026) ---
+                        // MÉXICO (Grupo A)
                         if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A2') { sedeAsignada = 'Estadio Azteca, CDMX'; fechaAsignada = '11 Jun 2026'; }
                         if (eq[enf[0]] === 'México' && eq[enf[1]] === 'Equipo A3') { sedeAsignada = 'Estadio Akron, GDL'; fechaAsignada = '18 Jun 2026'; }
+                        if (eq[enf[0]] === 'Equipo A4' && eq[enf[1]] === 'México') { sedeAsignada = 'Estadio Azteca, CDMX'; fechaAsignada = '24 Jun 2026'; }
+                        
+                        // CANADÁ (Grupo B)
+                        if (eq[enf[0]] === 'Canadá' && eq[enf[1]] === 'Equipo B2') { sedeAsignada = 'BMO Field, Toronto'; fechaAsignada = '12 Jun 2026'; }
+                        if (eq[enf[0]] === 'Canadá' && eq[enf[1]] === 'Equipo B3') { sedeAsignada = 'BC Place, Vancouver'; fechaAsignada = '18 Jun 2026'; }
+                        if (eq[enf[0]] === 'Equipo B4' && eq[enf[1]] === 'Canadá') { sedeAsignada = 'BC Place, Vancouver'; fechaAsignada = '24 Jun 2026'; }
+
+                        // ESTADOS UNIDOS (Grupo D)
+                        if (eq[enf[0]] === 'Estados Unidos' && eq[enf[1]] === 'Equipo D2') { sedeAsignada = 'SoFi Stadium, LA'; fechaAsignada = '12 Jun 2026'; }
+                        if (eq[enf[0]] === 'Estados Unidos' && eq[enf[1]] === 'Equipo D3') { sedeAsignada = 'Lumen Field, Seattle'; fechaAsignada = '19 Jun 2026'; }
+                        if (eq[enf[0]] === 'Equipo D4' && eq[enf[1]] === 'Estados Unidos') { sedeAsignada = 'SoFi Stadium, LA'; fechaAsignada = '25 Jun 2026'; }
 
                         batch.set(ref, {
                             orden: ordenGlobal,
@@ -221,7 +255,7 @@
                             local: eq[enf[0]],
                             visitante: eq[enf[1]],
                             fecha: fechaAsignada,
-                            hora: 'Horario oficial TBD',
+                            hora: 'TBD (Pendiente FIFA)',
                             sede: sedeAsignada,
                             estado: 'pendiente', 
                             golesL_real: null, golesV_real: null 
@@ -233,17 +267,17 @@
                 try {
                     alert("Generando 72 partidos de la Fase de Grupos Oficial... Espera.");
                     await batch.commit();
-                    alert("¡Los 72 partidos fueron creados! Hosts asignados, resto a la espera del sorteo.");
+                    alert("¡Los 72 partidos de Fase de Grupos fueron creados con las fechas y sedes oficiales para los anfitriones!");
                 } catch(e) { alert("Error al generar partidos."); }
             };
 
             const borrarTodosLosPartidos = async () => {
-                if(confirm("¿Estás seguro de borrar todos los partidos?")) {
+                if(confirm("¿Estás seguro de borrar TODOS los partidos de la base de datos?")) {
                     const snapshot = await db.collection('partidos').get();
                     const batch = db.batch();
                     snapshot.docs.forEach((doc) => batch.delete(doc.ref));
                     await batch.commit();
-                    alert("Torneo limpiado.");
+                    alert("Torneo limpiado con éxito.");
                 }
             };
 
@@ -257,6 +291,7 @@
                 }
             };
 
+            // MOTOR DE ASIGNACIÓN DE PUNTOS
             const calcularPuntosGlobal = async () => {
                 const snapshotUsuarios = await db.collection('usuarios').get();
                 const batch = db.batch();
@@ -270,6 +305,7 @@
                         if (p.estado === 'finalizado') {
                             const pickUsuario = susPicks[p.id]; 
                             if (pickUsuario) {
+                                // Calculamos la tendencia real del partido finalizado
                                 let tReal = p.golesL_real > p.golesV_real ? 'local' : (p.golesL_real < p.golesV_real ? 'visitante' : 'empate');
                                 if (tReal === pickUsuario) puntosTotales += 1;
                             }
@@ -279,31 +315,33 @@
                 });
                 
                 await batch.commit();
-                alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
+                alert("Ranking actualizado. Se evaluaron las tendencias y asignaron los puntos.");
             };
 
+            // ALGORITMO MATCH PERFECTO CON LA API
             const handleSyncAPI = async () => {
                 setIsSyncing(true);
                 try {
+                    // Endpoint Liga Mundial FIFA = 1, Temporada 2026
                     const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
                         method: "GET", headers: { "x-apisports-key": API_KEY }
                     });
                     const data = await res.json();
                     
-                    if (!data.response) throw new Error("Sin datos");
+                    if (!data.response) throw new Error("Sin datos de la API");
 
                     let actualizados = 0;
                     const batch = db.batch();
 
                     data.response.forEach(fixture => {
-                        if (fixture.fixture.status.short === 'FT') { 
-                            const apiHome = fixture.teams.home.name;
-                            const apiAway = fixture.teams.away.name;
+                        if (fixture.fixture.status.short === 'FT') { // Match Finished
+                            const apiHomeTranslated = traducirNombre(fixture.teams.home.name);
+                            const apiAwayTranslated = traducirNombre(fixture.teams.away.name);
                             
-                            // BUSCADOR CON NORMALIZADOR (Evita errores por tildes o mayúsculas)
+                            // Hacemos MATCH usando el nombre normalizado de tu Base de Datos vs Nombre Traducido de la API
                             const matchEncontrado = partidos.find(p => 
-                                normalizeName(p.local) === normalizeName(apiHome) && 
-                                normalizeName(p.visitante) === normalizeName(apiAway)
+                                normalizeName(p.local) === apiHomeTranslated && 
+                                normalizeName(p.visitante) === apiAwayTranslated
                             );
                             
                             if(matchEncontrado && matchEncontrado.estado === 'pendiente') {
@@ -320,10 +358,10 @@
 
                     if(actualizados > 0) {
                         await batch.commit();
-                        await calcularPuntosGlobal(); 
-                        alert(`¡API Sincronizada! ${actualizados} partidos nuevos finalizados. Puntos repartidos.`);
+                        await calcularPuntosGlobal(); // Se disparan los puntos automáticamente al haber match
+                        alert(`¡API Sincronizada! ${actualizados} partidos finalizados encontrados. Puntos repartidos en el Ranking.`);
                     } else {
-                        alert("Conexión API Exitosa. No hay partidos finalizados nuevos.");
+                        alert("Conexión con la API Exitosa. No hay partidos nuevos finalizados que coincidan con la base de datos.");
                     }
                 } catch (error) {
                     alert("Error conectando con la API.");
@@ -335,7 +373,7 @@
             // ==========================================
             if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
 
-            // PANTALLA DE LOGIN CON DISEÑO PANINI
+            // PANTALLA DE LOGIN DISEÑO PANINI
             if (!user || !profile?.username || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
@@ -423,14 +461,17 @@
                                                             {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
                                                             
                                                             <div className="w-full flex justify-between items-center mb-6 border-b border-[#C5A97D]/20 pb-3">
-                                                                <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
-                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase"><Icon name="map-pin" size={12}/> {partido.sede}</div>
+                                                                <div className="flex flex-col gap-1">
+                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
+                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora}</div>
+                                                                </div>
+                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase text-right max-w-[50%]"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                             </div>
 
                                                             <div className="flex items-center justify-between w-full gap-2 mb-8">
                                                                 <div className="flex-1 flex flex-col items-center gap-2">
                                                                     <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
-                                                                    <span className="font-black text-base text-center truncate w-full text-white/90">{partido.local}</span>
+                                                                    <span className="font-black text-sm text-center w-full text-white/90 leading-tight">{partido.local}</span>
                                                                 </div>
                                                                 
                                                                 <div className="flex flex-col items-center justify-center mx-2 w-16">
@@ -439,7 +480,7 @@
 
                                                                 <div className="flex-1 flex flex-col items-center gap-2">
                                                                     <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                                                                    <span className="font-black text-base text-center truncate w-full text-white/90">{partido.visitante}</span>
+                                                                    <span className="font-black text-sm text-center w-full text-white/90 leading-tight">{partido.visitante}</span>
                                                                 </div>
                                                             </div>
 
@@ -521,15 +562,15 @@
                                 <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                                     
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados y Puntos</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Motor de Resultados</p>
                                         <button onClick={handleSyncAPI} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3 disabled:opacity-50 flex justify-center items-center gap-2">
-                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> Sincronizar API en vivo
+                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> 1. Sincronizar API en vivo
                                         </button>
-                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">Forzar Recálculo</button>
+                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">2. Forzar Recálculo Puntos</button>
                                     </div>
 
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Base</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Base Oficial FIFA</p>
                                         <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl hover:bg-[#D31145] hover:text-white transition-all mb-3">Borrar Todo</button>
                                         <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos Reales</button>
                                     </div>
