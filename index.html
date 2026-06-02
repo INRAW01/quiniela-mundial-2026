@@ -532,12 +532,13 @@
                         {/* ====== RANKING ====== */}
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in">
-                                <div className="panini-gradient p-6 rounded-2xl shadow-xl text-center relative mx-2 mb-6">
+                                <div className="panini-gradient p-6 rounded-2xl shadow-xl text-center relative mx-2 mb-6 border border-[#C5A97D]/50">
                                     <h2 className="font-display font-black text-3xl mb-1 text-white drop-shadow-lg uppercase tracking-tight">Clasificación</h2>
                                     <p className="text-[#C5A97D] text-[10px] font-black tracking-widest uppercase">1 Punto por Acierto de Tendencia</p>
                                     
-                                    <button onClick={handleAdminAccess} className="absolute top-4 right-4 text-white/30 hover:text-white p-2 transition-colors" title="Panel de Administración">
-                                        <Icon name="shield-alert" size={22} />
+                                    {/* Botón Admin 100% VISIBLE */}
+                                    <button onClick={handleAdminAccess} className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white/90 border border-[#C5A97D]/40 px-3 py-1.5 rounded-lg text-xs font-black tracking-widest transition-all shadow-md backdrop-blur-sm" title="Panel de Administración">
+                                        ⚙️ ADMIN
                                     </button>
                                 </div>
                                 
