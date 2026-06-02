@@ -31,7 +31,6 @@
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #C5A97D; border-radius: 10px; }
@@ -96,6 +95,7 @@
             const [isLoading, setIsLoading] = React.useState(true);
             const [isLoginExiting, setIsLoginExiting] = React.useState(false);
             const [showAdminModal, setShowAdminModal] = React.useState(false);
+            const [isSyncing, setIsSyncing] = React.useState(false);
 
             // GESTIÓN DE SESIÓN
             React.useEffect(() => {
@@ -147,7 +147,6 @@
                     } else {
                         const cred = await auth.signInAnonymously();
                         currentUserUid = cred.user.uid;
-                        // Novedad: Agregamos locked: false al crear usuario
                         await db.collection('usuarios').doc(currentUserUid).set({
                             username: username.trim(), picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
@@ -162,27 +161,18 @@
                 }
             };
 
-            // ACTUALIZACIÓN DE MARCADOR
-            const guardarPrediccion = async (partidoId, tipo, valor) => {
-                if (!profile || profile.locked) return;
-                const parseado = valor === '' ? '' : parseInt(valor);
-                const picksActuales = profile.picks || {};
-                const nuevoPick = { ...picksActuales, [partidoId]: { ...picksActuales[partidoId], [tipo]: parseado } };
-                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
-            };
-
-            // BOTONES DE TENDENCIA RÁPIDA
-            const guardarPickRapido = async (partidoId, golesL, golesV) => {
+            // ACTUALIZACIÓN EXCLUSIVA DE TENDENCIA (SIN MARCADORES NUMÉRICOS)
+            const guardarTendencia = async (partidoId, tendencia) => {
                 if (!profile || profile.locked) return;
                 const picksActuales = profile.picks || {};
-                const nuevoPick = { ...picksActuales, [partidoId]: { golesLocal: golesL, golesVisitante: golesV } };
+                const nuevoPick = { ...picksActuales, [partidoId]: tendencia }; // 'local', 'empate', o 'visitante'
                 await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
             };
 
             // BOTÓN DE BLOQUEO MAESTRO
             const handleBloquearQuiniela = async () => {
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás completamente seguro de GUARDAR Y BLOQUEAR tu quiniela? Una vez hecho, entrarás al Ranking Oficial y no podrás modificar tus resultados.`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás completamente seguro de GUARDAR Y BLOQUEAR tu quiniela? Una vez hecho, entrarás al Ranking Oficial y no podrás modificar tus selecciones.`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
                     alert("¡Quiniela Bloqueada Exitosamente! Ya estás participando en el Ranking Oficial.");
@@ -190,7 +180,7 @@
             };
 
             // ==========================================
-            // 3. PANEL DE ADMINISTRADOR & GENERADOR
+            // 3. PANEL DE ADMINISTRADOR & MOTORES API
             // ==========================================
             const cargarPartidosBase = async () => {
                 const gruposData = {
@@ -212,7 +202,7 @@
                 let ordenGlobal = 1;
                 const batch = db.batch();
 
-                // Generador Matemático de Enfrentamientos Únicos (6 por grupo = 72 total)
+                // Matemática Perfecta de Enfrentamientos: Local(0)-Visita(1), L(2)-V(3), L(0)-V(2), L(1)-V(3), L(0)-V(3), L(1)-V(2)
                 Object.keys(gruposData).forEach(grupo => {
                     const eq = gruposData[grupo];
                     const enfrentamientos = [ [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2] ];
@@ -227,21 +217,22 @@
                             fecha: `Jornada ${Math.floor(index/2) + 1}`,
                             hora: 'Por definir',
                             sede: sedes[ordenGlobal % 6],
-                            estado: 'pendiente', golesL_real: null, golesV_real: null
+                            estado: 'pendiente', 
+                            golesL_real: null, golesV_real: null // Ocultos en UI, necesarios para la API
                         });
                         ordenGlobal++;
                     });
                 });
 
                 try {
-                    alert("Generando 72 partidos sin repeticiones... Espera un momento.");
+                    alert("Generando 72 partidos únicos... Espera un momento.");
                     await batch.commit();
-                    alert("¡Los 72 partidos fueron creados y organizados correctamente!");
+                    alert("¡Los 72 partidos fueron creados y organizados correctamente sin repeticiones!");
                 } catch(e) { alert("Error al generar partidos."); }
             };
 
             const borrarTodosLosPartidos = async () => {
-                if(confirm("¿Borrar todos los partidos?")) {
+                if(confirm("¿Estás seguro de borrar todos los partidos?")) {
                     const snapshot = await db.collection('partidos').get();
                     const batch = db.batch();
                     snapshot.docs.forEach((doc) => batch.delete(doc.ref));
@@ -250,27 +241,87 @@
                 }
             };
 
+            const handleDeleteUser = async (userId, userName) => {
+                if(confirm(`¿ELIMINAR a "${userName}" permanentemente de la base de datos?`)) {
+                    await db.collection('usuarios').doc(userId).delete();
+                    if (userId === user.uid) {
+                        localStorage.removeItem('quiniela_user_uid');
+                        window.location.reload();
+                    }
+                }
+            };
+
+            // MOTOR DE CALCULO DE TENDENCIAS
             const calcularPuntosGlobal = async () => {
                 const snapshotUsuarios = await db.collection('usuarios').get();
                 const batch = db.batch();
+                
                 snapshotUsuarios.docs.forEach(doc => {
                     const dataUsuario = doc.data();
                     const susPicks = dataUsuario.picks || {};
                     let puntosTotales = 0;
+                    
                     partidos.forEach(p => {
                         if (p.estado === 'finalizado') {
-                            const pickL = susPicks[p.id]?.golesLocal; const pickV = susPicks[p.id]?.golesVisitante;
-                            if (pickL !== undefined && pickV !== undefined && pickL !== '' && pickV !== '') {
-                                let tReal = p.golesL_real > p.golesV_real ? 'L' : (p.golesL_real < p.golesV_real ? 'V' : 'E');
-                                let tUser = pickL > pickV ? 'L' : (pickL < pickV ? 'V' : 'E');
-                                if (tReal === tUser) puntosTotales += 1;
+                            const pickUsuario = susPicks[p.id]; // 'local', 'empate' o 'visitante'
+                            if (pickUsuario) {
+                                let tReal = p.golesL_real > p.golesV_real ? 'local' : (p.golesL_real < p.golesV_real ? 'visitante' : 'empate');
+                                if (tReal === pickUsuario) puntosTotales += 1; // 1 Punto Exacto por Tendencia
                             }
                         }
                     });
                     batch.update(doc.ref, { puntos: puntosTotales });
                 });
+                
                 await batch.commit();
-                alert("Ranking actualizado.");
+                alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
+            };
+
+            // ALGORITMO INTELIGENTE API-FOOTBALL
+            const handleSyncAPI = async () => {
+                setIsSyncing(true);
+                try {
+                    const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
+                        method: "GET",
+                        headers: { "x-apisports-key": API_KEY }
+                    });
+                    const data = await res.json();
+                    
+                    if (!data.response) throw new Error("Sin datos");
+
+                    let actualizados = 0;
+                    const batch = db.batch();
+
+                    data.response.forEach(fixture => {
+                        if (fixture.fixture.status.short === 'FT') { // Match Finished
+                            // Lógica de Sincronización: Buscar match en Firebase por nombres
+                            // (En 2026, si la API tiene nombres en inglés, aquí se aplicará un diccionario traductor)
+                            const apiHome = fixture.teams.home.name;
+                            const apiAway = fixture.teams.away.name;
+                            
+                            const matchEncontrado = partidos.find(p => p.local === apiHome && p.visitante === apiAway);
+                            if(matchEncontrado && matchEncontrado.estado === 'pendiente') {
+                                const ref = db.collection('partidos').doc(matchEncontrado.id);
+                                batch.update(ref, {
+                                    golesL_real: fixture.goals.home,
+                                    golesV_real: fixture.goals.away,
+                                    estado: 'finalizado'
+                                });
+                                actualizados++;
+                            }
+                        }
+                    });
+
+                    if(actualizados > 0) {
+                        await batch.commit();
+                        await calcularPuntosGlobal(); // Calcular automáticamente al guardar
+                        alert(`¡API Sincronizada! ${actualizados} partidos nuevos finalizados. Puntos repartidos.`);
+                    } else {
+                        alert("Conexión con API Exitosa. No hay partidos finalizados nuevos para actualizar hoy.");
+                    }
+                } catch (error) {
+                    alert("Error conectando con la API de resultados en vivo.");
+                } finally { setIsSyncing(false); }
             };
 
             // ==========================================
@@ -290,7 +341,6 @@
                 );
             }
 
-            // Agrupación visual de partidos para computadora
             const gruposNombres = [...new Set(partidos.map(p => p.grupo))];
 
             return (
@@ -317,11 +367,11 @@
 
                     <main className="max-w-6xl mx-auto p-4 pt-6 space-y-4 w-full">
                         
-                        {/* ====== FASE DE GRUPOS (COMPUTADORA Y CELULAR) ====== */}
+                        {/* ====== FASE DE GRUPOS ====== */}
                         {activeTab === 'grupos' && (
                             <div className="animate-fade-in">
                                 
-                                {/* BARRA DE PROGRESO Y BLOQUEO */}
+                                {/* BARRA DE PROGRESO */}
                                 <div className="bg-[#033B25] p-6 rounded-3xl border border-[#00623B] flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
                                     <div className="mb-4 md:mb-0 text-center md:text-left">
                                         <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
@@ -340,39 +390,30 @@
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             
-                                            {/* RESPONSIVO: 1 Columna en Celular, 2 en Tablet, 3 en PC */}
+                                            {/* RESPONSIVO: 1 Col Celular, 2 Tablet, 3 PC */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                 {partidos.filter(p => p.grupo === grupo).map(partido => {
-                                                    const pickL = profile.picks?.[partido.id]?.golesLocal ?? '';
-                                                    const pickV = profile.picks?.[partido.id]?.golesVisitante ?? '';
-                                                    
-                                                    // Detectar tendencia visual actual
-                                                    let activeTrend = 'ninguna';
-                                                    if(pickL !== '' && pickV !== '') {
-                                                        if(pickL > pickV) activeTrend = 'local';
-                                                        else if(pickL < pickV) activeTrend = 'visitante';
-                                                        else activeTrend = 'empate';
-                                                    }
+                                                    const miPick = profile.picks?.[partido.id]; // 'local', 'empate', 'visitante'
 
                                                     return (
                                                         <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
                                                             {profile.locked && <div className="absolute inset-0 bg-black/10 pointer-events-none z-10"></div>}
+                                                            {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
                                                             
-                                                            <div className="w-full flex justify-between items-center mb-5 border-b border-white/10 pb-3">
+                                                            <div className="w-full flex justify-between items-center mb-6 border-b border-white/10 pb-3">
                                                                 <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
                                                                 <div className="flex items-center gap-1 text-[#C5A97D]/80 text-[10px] font-black tracking-widest uppercase"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                             </div>
 
-                                                            <div className="flex items-center justify-between w-full gap-2 mb-6">
+                                                            {/* EQUIPOS Y VS (SIN INPUTS) */}
+                                                            <div className="flex items-center justify-between w-full gap-2 mb-8">
                                                                 <div className="flex-1 flex flex-col items-center gap-2">
                                                                     <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
                                                                     <span className="font-black text-base text-center truncate w-full text-white/90">{partido.local}</span>
                                                                 </div>
                                                                 
-                                                                <div className="flex items-center gap-2 bg-black/40 p-3 rounded-2xl border border-white/5 shadow-inner">
-                                                                    <input type="number" value={pickL} onChange={(e) => guardarPrediccion(partido.id, 'golesLocal', e.target.value)} disabled={profile.locked || partido.estado==='finalizado'} className="w-12 h-12 text-center bg-white text-[#53121F] font-black text-2xl rounded-xl focus:ring-4 focus:ring-[#D31145] outline-none shadow-sm disabled:bg-gray-300" />
-                                                                    <span className="text-[#C5A97D] font-black text-lg">-</span>
-                                                                    <input type="number" value={pickV} onChange={(e) => guardarPrediccion(partido.id, 'golesVisitante', e.target.value)} disabled={profile.locked || partido.estado==='finalizado'} className="w-12 h-12 text-center bg-white text-[#53121F] font-black text-2xl rounded-xl focus:ring-4 focus:ring-[#D31145] outline-none shadow-sm disabled:bg-gray-300" />
+                                                                <div className="flex flex-col items-center justify-center mx-2 w-16">
+                                                                    <span className="text-[#C5A97D] font-display font-black text-2xl drop-shadow-sm opacity-60">VS</span>
                                                                 </div>
 
                                                                 <div className="flex-1 flex flex-col items-center gap-2">
@@ -381,11 +422,13 @@
                                                                 </div>
                                                             </div>
 
-                                                            {/* BOTONES DE TENDENCIA */}
+                                                            {/* BOTONES EXCLUSIVOS DE TENDENCIA */}
                                                             <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-                                                                <button onClick={() => guardarPickRapido(partido.id, 1, 0)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'local' ? 'bg-[#D31145] text-white shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Local</button>
-                                                                <button onClick={() => guardarPickRapido(partido.id, 0, 0)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'empate' ? 'bg-[#C5A97D] text-[#53121F] shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Empate</button>
-                                                                <button onClick={() => guardarPickRapido(partido.id, 0, 1)} disabled={profile.locked || partido.estado==='finalizado'} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTrend === 'visitante' ? 'bg-[#00623B] text-white shadow-md' : 'bg-black/30 text-white/40 hover:bg-black/50'}`}>Visita</button>
+                                                                <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${miPick === 'local' ? 'bg-[#D31145] text-white shadow-[0_4px_10px_rgba(211,17,69,0.5)] scale-105' : 'bg-black/40 text-white/50 hover:bg-black/60'}`}>Local</button>
+                                                                
+                                                                <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] shadow-[0_4px_10px_rgba(197,169,125,0.4)] scale-105' : 'bg-black/40 text-white/50 hover:bg-black/60'}`}>Empate</button>
+                                                                
+                                                                <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${miPick === 'visitante' ? 'bg-[#00623B] text-white shadow-[0_4px_10px_rgba(0,98,59,0.5)] scale-105' : 'bg-black/40 text-white/50 hover:bg-black/60'}`}>Visita</button>
                                                             </div>
                                                         </div>
                                                     )
@@ -411,7 +454,7 @@
                             <div className="space-y-4 animate-fade-in">
                                 <div className="panini-gradient p-8 rounded-3xl shadow-xl text-center relative mb-8">
                                     <h2 className="font-display font-black text-4xl mb-2 text-white drop-shadow-lg uppercase tracking-tight">Ranking Oficial</h2>
-                                    <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo usuarios con Quiniela Bloqueada</p>
+                                    <p className="text-[#C5A97D] text-xs font-black tracking-widest uppercase">Solo usuarios con Quiniela Bloqueada participan</p>
                                     <button onClick={() => { if(prompt("Contraseña:")==="26zorras27") setShowAdminModal(true); }} className="absolute top-4 right-4 bg-black/40 hover:bg-black/70 text-white/90 border border-[#C5A97D]/30 px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all backdrop-blur-sm">⚙️ ADMIN</button>
                                 </div>
                                 
@@ -450,12 +493,41 @@
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
-                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2"><Icon name="x" size={24} /></button>
+                                <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white p-2 transition-colors bg-black/20 rounded-full"><Icon name="x" size={24} /></button>
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-white/10 pb-4">Panel de Control</h2>
-                                <div className="space-y-4">
-                                    <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border-2 border-[#D31145] text-[#D31145] font-black py-3 rounded-xl hover:bg-[#D31145] hover:text-white transition-all">Paso 1: Borrar Torneo</button>
-                                    <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-4 rounded-xl shadow-lg transition-all">Paso 2: Generar 72 Partidos Exactos</button>
-                                    <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-4 rounded-xl shadow-lg mt-4">Forzar Cálculo de Puntos</button>
+                                
+                                <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                                    
+                                    {/* 1. API */}
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados y Puntos</p>
+                                        <button onClick={handleSyncAPI} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3 disabled:opacity-50 flex justify-center items-center gap-2">
+                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> Sincronizar API en vivo
+                                        </button>
+                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">Forzar Recálculo</button>
+                                    </div>
+
+                                    {/* 2. TORNEO */}
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Base</p>
+                                        <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl hover:bg-[#D31145] hover:text-white transition-all mb-3">Borrar Todo</button>
+                                        <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos</button>
+                                    </div>
+
+                                    {/* 3. USUARIOS (ELIMINAR) */}
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestionar Usuarios</p>
+                                        <div className="space-y-2">
+                                            {Object.values(predicciones).map(j => (
+                                                <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5">
+                                                    <span className="font-bold text-sm uppercase truncate max-w-[150px]">{j.username}</span>
+                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors">
+                                                        Eliminar
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
