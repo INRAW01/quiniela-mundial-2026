@@ -121,14 +121,13 @@
             const [isLoading, setIsLoading] = React.useState(true);
             const [isLoginExiting, setIsLoginExiting] = React.useState(false);
             const [showAdminModal, setShowAdminModal] = React.useState(false);
-            const [showRulesModal, setShowRulesModal] = React.useState(false); // ESTADO PARA MODAL DE REGLAS
             const [isSyncing, setIsSyncing] = React.useState(false);
             
             // Estados para el Modo Espía
             const [spyUser, setSpyUser] = React.useState(null); 
             const [spySearchTerm, setSpySearchTerm] = React.useState("");
             const [spyFilter, setSpyFilter] = React.useState("all");
-            const [modoEspiaActivo, setModoEspiaActivo] = React.useState(false); // ESTADO PARA BLOQUEO DE ESPIONAJE
+            const [modoEspiaActivo, setModoEspiaActivo] = React.useState(false);
 
             React.useEffect(() => {
                 const savedUid = localStorage.getItem('quiniela_user_uid');
@@ -575,15 +574,8 @@
                             <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
                                 <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span>
                             </h1>
-                            <div className="flex items-center gap-2">
-                                {/* Botón de Reglas */}
-                                <button onClick={() => setShowRulesModal(true)} className="flex items-center gap-1 bg-black/20 px-3 py-2 rounded-full border border-white/10 hover:bg-black/40 transition-colors">
-                                    <Icon name="book-open" size={16} className="text-[#C5A97D]" />
-                                    <span className="font-bold text-xs uppercase text-[#C5A97D] hidden md:inline">Reglas</span>
-                                </button>
-                                <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30">
-                                    <span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span>
-                                </div>
+                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30">
+                                <span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span>
                             </div>
                         </div>
                         <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2">
@@ -773,59 +765,6 @@
                         )}
                     </main>
 
-                    {/* ====== MODAL DE REGLAS E INSTRUCCIONES ====== */}
-                    {showRulesModal && (
-                        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
-                            <div className="bg-[#53121F] border-2 border-[#C5A97D] rounded-3xl w-full max-w-lg max-h-[85vh] flex flex-col relative shadow-[0_0_40px_rgba(197,169,125,0.3)]">
-                                
-                                <div className="sticky top-0 bg-[#53121F] z-20 border-b border-[#C5A97D]/20 px-6 py-5 rounded-t-3xl flex justify-between items-center">
-                                    <h2 className="font-display font-black text-2xl text-white uppercase tracking-wide drop-shadow-md flex items-center gap-2">
-                                        <Icon name="book-open" size={24} className="text-[#C5A97D]" /> Reglas del Juego
-                                    </h2>
-                                    <button onClick={() => setShowRulesModal(false)} className="text-[#C5A97D] bg-black/40 rounded-full p-2 hover:bg-black transition-colors touch-manipulation">
-                                        <Icon name="x" size={24} />
-                                    </button>
-                                </div>
-
-                                <div className="overflow-y-auto custom-scrollbar p-6 space-y-6 text-sm text-white/90">
-                                    
-                                    <section>
-                                        <h3 className="text-[#C5A97D] font-black uppercase tracking-widest mb-3 border-l-4 border-[#C5A97D] pl-3">Instrucciones de Uso</h3>
-                                        <ul className="space-y-3 font-medium">
-                                            <li className="flex gap-2"><Icon name="user-check" size={18} className="text-[#00623B] shrink-0" /> <p><strong>Regístrate:</strong> Entra a la app e ingresa tu nombre para crear tu perfil. Con tu nombre puedes entrar en diferentes dispositivos y se guardarán tus predicciones antes de bloquear el juego.</p></li>
-                                            <li className="flex gap-2"><Icon name="mouse-pointer-click" size={18} className="text-[#00623B] shrink-0" /> <p><strong>Pronostica:</strong> En la pestaña de Fase de Grupos, selecciona tu predicción presionando directamente el botón de la Selección A, la Selección B o el botón de Empate.</p></li>
-                                            <li className="flex gap-2"><Icon name="lock" size={18} className="text-[#00623B] shrink-0" /> <p><strong>Bloquea tu juego:</strong> Cuando termines de llenar tus pronósticos, ve a la parte superior y presiona el botón "Guardar y Bloquear". Si no lo bloqueas, no acumularás puntos en el Ranking Oficial.</p></li>
-                                        </ul>
-                                    </section>
-
-                                    <section>
-                                        <h3 className="text-[#C5A97D] font-black uppercase tracking-widest mb-3 border-l-4 border-[#C5A97D] pl-3">Reglas y Premios</h3>
-                                        <ul className="space-y-3 font-medium">
-                                            <li className="flex items-center gap-2"><Icon name="users" size={16} className="text-white/50" /> <span><strong>Cupo Limitado:</strong> Máximo de 10 participantes.</span></li>
-                                            <li className="flex items-center gap-2"><Icon name="trophy" size={16} className="text-yellow-500" /> <span><strong>El Gran Premio:</strong> El primer lugar del ranking se llevará $4,000 MXN o 100,000 CRC.</span></li>
-                                            <li className="flex items-center gap-2"><Icon name="calendar-off" size={16} className="text-white/50" /> <span><strong>Límite de Pago:</strong> 8 de junio. Quien no pague, pierde su lugar.</span></li>
-                                            <li className="flex items-center gap-2"><Icon name="calendar-check" size={16} className="text-white/50" /> <span><strong>Límite de Bloqueo:</strong> Tienes hasta el 10 de junio para cerrar tu quiniela.</span></li>
-                                            <li className="flex gap-2"><Icon name="shield-alert" size={18} className="text-white/50 shrink-0" /> <p><strong>Sin Modificaciones:</strong> Una vez presionado "Guardar y Bloquear", los marcadores quedan congelados sin excepción.</p></li>
-                                            <li className="flex gap-2"><Icon name="crosshair" size={18} className="text-white/50 shrink-0" /> <p><strong>Puntuación:</strong> 1 punto por cada acierto en la tendencia (selección ganadora o empate). Ranking automático.</p></li>
-                                        </ul>
-                                    </section>
-
-                                    <section className="bg-black/30 p-4 rounded-2xl border border-[#C5A97D]/30">
-                                        <h3 className="text-[#D31145] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <Icon name="swords" size={18} /> Criterio de Desempate Oficial
-                                        </h3>
-                                        <p className="font-medium text-white/80 leading-relaxed">
-                                            Si al terminar la fase de grupos hay un empate en el primer lugar del ranking, el campeón se definirá <strong>sumando los aciertos de todos los partidos en los que participen Curazao 🇨🇼, Haití 🇭🇹 y Cabo Verde 🇨🇻</strong>. 
-                                        </p>
-                                        <p className="font-medium text-white/80 leading-relaxed mt-2">
-                                            Quien haya acumulado más puntos específicamente sumando los partidos de estas tres selecciones, ganará el desempate. Si el empate persiste tras esta suma, el premio se dividirá en partes iguales.
-                                        </p>
-                                    </section>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* ====== MODAL ESPÍA MEJORADO (Full Responsivo) ====== */}
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in">
@@ -957,7 +896,7 @@
                                         <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">2. Forzar Recálculo Puntos</button>
                                     </div>
 
-                                    {/* NUEVO BOTÓN PARA MODO ESPÍA AQUÍ */}
+                                    {/* CONTROL DE ESPIONAJE */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Control de Espionaje</p>
                                         <button 
@@ -992,6 +931,11 @@
                             </div>
                         </div>
                     )}
+                    
+                    {/* MARCA DE AGUA EASTER EGG (SUPER SUTIL) */}
+                    <div className="fixed bottom-2 right-3 z-0 pointer-events-none opacity-[0.03] text-white font-black text-xs tracking-widest">
+                        ZORRAS
+                    </div>
                 </div>
             );
         };
