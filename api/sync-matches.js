@@ -1,7 +1,5 @@
+// api/sync-matches.js
 export default async function handler(req, res) {
-  // Configuración de cabeceras para permitir peticiones desde tu propio dominio
-  res.setHeader('Access-Control-Allow-Origin', '*'); 
-  
   const API_KEY = "356a49f5da904439a26625cac68c380e";
   const url = "https://api.football-data.org/v4/competitions/WC/matches";
 
@@ -13,9 +11,10 @@ export default async function handler(req, res) {
     
     const data = await response.json();
     
-    // Devolvemos la data al frontend
+    // Si la API nos responde bien, pasamos los datos al frontend
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: "Fallo en la conexión al servidor de API" });
+    // Si falla, enviamos un error que tu frontend pueda capturar
+    res.status(500).json({ error: "Error conectando con Football-Data" });
   }
 }
