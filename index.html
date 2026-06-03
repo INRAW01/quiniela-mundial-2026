@@ -51,7 +51,7 @@
             messagingSenderId: "1075755299669",
             appId: "1:1075755299669:web:f565bbd29ee371e60235dc"
         };
-        const API_KEY = "176f818a4f007967747803df84e545cf";
+        const API_KEY = "356a49f5da904439a26625cac68c380e";
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -417,31 +417,52 @@
             const handleSyncAPI = async (silencioso = false) => {
                 if (!silencioso) setIsSyncing(true);
                 try {
-                    const res = await fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
-                        method: "GET", headers: { "x-apisports-key": API_KEY }
+                    // 1. NUEVO ENDPOINT Y NUEVO HEADER PARA FOOTBALL-DATA
+                    const res = await fetch("https://api.football-data.org/v4/competitions/WC/matches", {
+                        method: "GET", 
+                        headers: { "X-Auth-Token": API_KEY } // football-data usa este nombre para la llave
                     });
                     const data = await res.json();
                     
-                    if (!data.response) throw new Error("Sin datos de la API");
+                    // 2. NUEVA RUTA DEL JSON (ahora los datos vienen en "matches")
+                    if (!data.matches) throw new Error("Sin datos de la API");
 
                     let actualizados = 0;
                     const batch = db.batch();
 
-                    data.response.forEach(fixture => {
-                        if (fixture.fixture.status.short === 'FT') { 
-                            const apiHomeTranslated = traducirNombre(fixture.teams.home.name);
-                            const apiAwayTranslated = traducirNombre(fixture.teams.away.name);
+                    data.matches.forEach(match => {
+                        // 3. NUEVO STATUS (football-data usa "FINISHED" en lugar de "FT")
+                        if (match.status === 'FINISHED') { 
+                            const apiHomeTranslated = traducirNombre(match.homeTeam.name);
+                            const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             
-                            const matchEncontrado = partidos.find(p => 
+                            // Búsqueda directa (Orden correcto)
+                            const matchDirecto = partidos.find(p => 
                                 normalizeName(p.local) === apiHomeTranslated && 
                                 normalizeName(p.visitante) === apiAwayTranslated
                             );
+
+                            // Búsqueda invertida (Por si la API manda al visita como local)
+                            const matchInvertido = partidos.find(p => 
+                                normalizeName(p.local) === apiAwayTranslated && 
+                                normalizeName(p.visitante) === apiHomeTranslated
+                            );
                             
-                            if(matchEncontrado && matchEncontrado.estado === 'pendiente') {
-                                const ref = db.collection('partidos').doc(matchEncontrado.id);
+                            // 4. NUEVA RUTA PARA LOS GOLES (match.score.fullTime)
+                            if(matchDirecto && matchDirecto.estado === 'pendiente') {
+                                const ref = db.collection('partidos').doc(matchDirecto.id);
                                 batch.update(ref, {
-                                    golesL_real: fixture.goals.home,
-                                    golesV_real: fixture.goals.away,
+                                    golesL_real: match.score.fullTime.home,
+                                    golesV_real: match.score.fullTime.away,
+                                    estado: 'finalizado'
+                                });
+                                actualizados++;
+                            } 
+                            else if(matchInvertido && matchInvertido.estado === 'pendiente') {
+                                const ref = db.collection('partidos').doc(matchInvertido.id);
+                                batch.update(ref, {
+                                    golesL_real: match.score.fullTime.away, // Se cruzan los goles
+                                    golesV_real: match.score.fullTime.home,
                                     estado: 'finalizado'
                                 });
                                 actualizados++;
@@ -449,7 +470,7 @@
                         }
                     });
 
-                    // NUEVO: El sistema anota en Firebase a qué hora hizo esta sincronización
+                    // Reloj automático intocable
                     const configRef = db.collection('sistema').doc('configuracion');
                     await configRef.set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
 
@@ -461,7 +482,8 @@
                         if (!silencioso) alert("Conexión con la API Exitosa. Todos los partidos están al día.");
                     }
                 } catch (error) {
-                    if (!silencioso) alert("Error conectando con la API.");
+                    if (!silencioso) alert("Error conectando con la API. Revisa la consola para más detalles.");
+                    console.error("Error API:", error);
                 } finally { 
                     if (!silencioso) setIsSyncing(false); 
                 }
