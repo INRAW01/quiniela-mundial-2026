@@ -418,10 +418,14 @@
                 if (!silencioso) setIsSyncing(true);
                 try {
                     // 1. NUEVO ENDPOINT Y NUEVO HEADER PARA FOOTBALL-DATA
-                    const res = await fetch("https://api.football-data.org/v4/competitions/WC/matches", {
-                        method: "GET", 
-                        headers: { "X-Auth-Token": API_KEY } // football-data usa este nombre para la llave
-                    });
+                    // Usamos un proxy público (corsproxy.io) para evadir el bloqueo de seguridad del navegador
+const urlProxy = "https://corsproxy.io/?";
+const urlAPI = "https://api.football-data.org/v4/competitions/WC/matches";
+
+const res = await fetch(urlProxy + encodeURIComponent(urlAPI), {
+    method: "GET", 
+    headers: { "X-Auth-Token": API_KEY } 
+});
                     const data = await res.json();
                     
                     // 2. NUEVA RUTA DEL JSON (ahora los datos vienen en "matches")
