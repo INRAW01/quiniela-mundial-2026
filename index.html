@@ -289,7 +289,6 @@
                 alert(modoEspiaActivo ? "Modo Espía BLOQUEADO 🔒" : "Modo Espía DESBLOQUEADO 🔓");
             };
 
-            // ACTUALIZAR MONTOS DESDE PANEL ADMIN
             const handleActualizarPremios = async () => {
                 try {
                     const configRef = db.collection('sistema').doc('configuracion');
@@ -425,6 +424,14 @@
                 }
             };
 
+            // FUNCIÓN PARA DESBLOQUEAR A UN USUARIO
+            const handleUnlockUser = async (userId, userName) => {
+                if(confirm(`¿Desbloquear la quiniela de "${userName}"? Esto le permitirá modificar sus pronósticos.`)) {
+                    await db.collection('usuarios').doc(userId).update({ locked: false });
+                    alert(`Quiniela de ${userName} desbloqueada.`);
+                }
+            };
+
             const calcularPuntosGlobal = async () => {
                 const snapshotUsuarios = await db.collection('usuarios').get();
                 const snapshotPartidos = await db.collection('partidos').get();
@@ -451,7 +458,7 @@
                     batch.update(doc.ref, { puntos: puntosTotales });
                 });
                 
-                await batch.update();
+                await batch.commit();
                 alert("Ranking actualizado. Se asignaron los puntos por acierto de tendencia.");
             };
 
@@ -588,7 +595,8 @@
                 );
             }
 
-            const gruposNombres = [...new Set(partidos.map(p => p.grupo))];
+            // ORDENAMIENTO ALFABÉTICO DE GRUPOS APLICADO AQUÍ
+            const gruposNombres = [...new Set(partidos.map(p => p.grupo))].sort();
 
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
@@ -918,7 +926,7 @@
                                         <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">2. Forzar Recálculo Puntos</button>
                                     </div>
 
-                                    {/* SECCIÓN NUEVA: CONTROL DE PREMIOS */}
+                                    {/* CONFIGURACIÓN DE PREMIOS */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Configuración de Premios</p>
                                         <div className="space-y-3 mb-4">
@@ -967,15 +975,25 @@
                                         <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos Reales</button>
                                     </div>
 
+                                    {/* GESTIÓN DE USUARIOS CON DESBLOQUEO */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestionar Usuarios</p>
                                         <div className="space-y-2">
                                             {Object.values(predicciones).map(j => (
-                                                <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5">
-                                                    <span className="font-bold text-sm uppercase truncate max-w-[150px]">{j.username}</span>
-                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors">
-                                                        Eliminar
-                                                    </button>
+                                                <div key={j.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-black/40 p-3 rounded-xl border border-white/5 gap-2">
+                                                    <span className="font-bold text-sm uppercase truncate w-full sm:max-w-[150px] flex items-center gap-2">
+                                                        {j.locked ? '🔒' : '🔓'} {j.username}
+                                                    </span>
+                                                    <div className="flex gap-2 w-full sm:w-auto justify-end">
+                                                        {j.locked && (
+                                                            <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-green-700 transition-colors">
+                                                                Desbloquear
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors">
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
