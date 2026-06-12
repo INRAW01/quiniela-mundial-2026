@@ -443,7 +443,7 @@
                         if (p.estado === 'finalizado') {
                             const pickUsuario = susPicks[p.id]; 
                             if (pickUsuario) {
-                                // CORRECCIÓN: Forzamos la evaluación numérica para que no haya falsos empates
+                                // Forzamos la evaluación numérica para que no haya falsos empates
                                 let gl = Number(p.golesL_real);
                                 let gv = Number(p.golesV_real);
                                 let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
@@ -458,6 +458,7 @@
                 await batch.commit();
             };
 
+            // EL CORAZÓN DE LA AUTOCORRECCIÓN Y EL ESCUDO ANTI-NULL
             const handleSyncAPI = async (silencioso = false) => {
                 if (!silencioso) setIsSyncing(true);
                 try {
@@ -471,9 +472,13 @@
                     const batch = db.batch();
 
                     data.matches.forEach(match => {
-                        if (match.status === 'FINISHED') { 
+                        // ESCUDO 1: Solo avanza si la API reporta FINISHED y los goles NO son null
+                        if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
+                            
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
                             const apiAwayTranslated = traducirNombre(match.awayTeam.name);
+                            const apiGolesL = Number(match.score.fullTime.home);
+                            const apiGolesV = Number(match.score.fullTime.away);
                             
                             const matchDirecto = partidos.find(p => 
                                 normalizeName(p.local) === apiHomeTranslated && 
@@ -485,23 +490,28 @@
                                 normalizeName(p.visitante) === apiHomeTranslated
                             );
                             
-                            if(matchDirecto && matchDirecto.estado === 'pendiente') {
-                                const ref = db.collection('partidos').doc(matchDirecto.id);
-                                batch.update(ref, {
-                                    golesL_real: Number(match.score.fullTime.home),
-                                    golesV_real: Number(match.score.fullTime.away),
-                                    estado: 'finalizado'
-                                });
-                                actualizados++;
+                            if (matchDirecto) {
+                                // ESCUDO 2: Autocorrección. Actualiza si está pendiente, o si los goles actuales en Firebase son distintos a los reales
+                                if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV) {
+                                    const ref = db.collection('partidos').doc(matchDirecto.id);
+                                    batch.update(ref, {
+                                        golesL_real: apiGolesL,
+                                        golesV_real: apiGolesV,
+                                        estado: 'finalizado'
+                                    });
+                                    actualizados++;
+                                }
                             } 
-                            else if(matchInvertido && matchInvertido.estado === 'pendiente') {
-                                const ref = db.collection('partidos').doc(matchInvertido.id);
-                                batch.update(ref, {
-                                    golesL_real: Number(match.score.fullTime.away),
-                                    golesV_real: Number(match.score.fullTime.home),
-                                    estado: 'finalizado'
-                                });
-                                actualizados++;
+                            else if (matchInvertido) {
+                                if (matchInvertido.estado === 'pendiente' || matchInvertido.golesL_real !== apiGolesV || matchInvertido.golesV_real !== apiGolesL) {
+                                    const ref = db.collection('partidos').doc(matchInvertido.id);
+                                    batch.update(ref, {
+                                        golesL_real: apiGolesV,
+                                        golesV_real: apiGolesL,
+                                        estado: 'finalizado'
+                                    });
+                                    actualizados++;
+                                }
                             }
                         }
                     });
@@ -509,12 +519,12 @@
                     const configRef = db.collection('sistema').doc('configuracion');
                     await configRef.set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
 
-                    if(actualizados > 0) {
+                    if (actualizados > 0) {
                         await batch.commit();
                         await calcularPuntosGlobal(); 
-                        if (!silencioso) alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados.`);
+                        if (!silencioso) alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados y corregidos.`);
                     } else {
-                        if (!silencioso) alert("Conexión con la API Exitosa. Todos los partidos están al día.");
+                        if (!silencioso) alert("Conexión con la API Exitosa. Todos los partidos están al día y correctos.");
                     }
                 } catch (error) {
                     if (!silencioso) alert("Error conectando con la API. Revisa la consola para más detalles.");
@@ -533,7 +543,6 @@
                     const pick = spyUser.picks?.[p.id];
                     if (pick) {
                         if (p.estado === 'finalizado') {
-                            // CORRECCIÓN: Evaluación numérica blindada
                             let gl = Number(p.golesL_real);
                             let gv = Number(p.golesV_real);
                             let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
@@ -555,7 +564,6 @@
 
                     let esCorrecto = null;
                     if (p.estado === 'finalizado') {
-                        // CORRECCIÓN: Evaluación numérica blindada
                         let gl = Number(p.golesL_real);
                         let gv = Number(p.golesV_real);
                         let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
