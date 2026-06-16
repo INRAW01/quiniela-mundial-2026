@@ -534,6 +534,48 @@
                 }
             };
 
+            // ==========================================
+            // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
+            // ==========================================
+            React.useEffect(() => {
+                if (partidos.length === 0 || !user) return;
+
+                const checarSincronizacionAutomatica = async () => {
+                    try {
+                        const configRef = db.collection('sistema').doc('configuracion');
+                        const doc = await configRef.get();
+                        const ahora = new Date().getTime();
+
+                        if (!doc.exists) {
+                            await configRef.set({ ultima_sincronizacion: ahora }, { merge: true });
+                            handleSyncAPI(true); // Sincroniza en silencio
+                        } else {
+                            const ultimaSync = doc.data().ultima_sincronizacion || 0;
+                            const horasPasadas = (ahora - ultimaSync) / (1000 * 60 * 60);
+
+                            // Si pasó más de media hora (0.5), actualiza silenciosamente
+                            if (horasPasadas >= 0.5) {
+                                await configRef.update({ ultima_sincronizacion: ahora });
+                                handleSyncAPI(true);
+                            }
+                        }
+                    } catch (error) {
+                        console.log("Sincronización automática en segundo plano omitida.", error);
+                    }
+                };
+
+                // 1. Se ejecuta inmediatamente cuando cualquier persona abre la app
+                checarSincronizacionAutomatica();
+
+                // 2. Latido interno: Revisa la API cada 15 minutos si alguien deja la app abierta en la pantalla
+                const intervalo = setInterval(() => {
+                    checarSincronizacionAutomatica();
+                }, 15 * 60 * 1000);
+
+                return () => clearInterval(intervalo);
+            }, [partidos.length, user]);
+
+
             // PREPARACIÓN DE DATOS PARA MODO ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosFiltrados = [];
