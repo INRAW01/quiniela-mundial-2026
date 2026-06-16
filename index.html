@@ -76,7 +76,13 @@
         const Icon = ({ name, size = 24, className = "" }) => {
             const ref = React.useRef();
             React.useEffect(() => {
-                if (ref.current) lucide.createIcons({ icons: { [name]: lucide.icons[name] }, nameAttr: 'data-lucide', attrs: { class: className, width: size, height: size } });
+                if (ref.current && window.lucide) {
+                    try {
+                        lucide.createIcons({ nameAttr: 'data-lucide', attrs: { class: className, width: size, height: size } });
+                    } catch (e) {
+                        console.error("Error al renderizar icono Lucide:", e);
+                    }
+                }
             }, [name, size, className]);
             return <i ref={ref} data-lucide={name}></i>;
         };
@@ -134,55 +140,91 @@
             const [inputMxn, setInputMxn] = React.useState("$4,000");
             const [inputCrc, setInputCrc] = React.useState("100,000");
 
+            // REFERENCIA REACTIVA PARA CONTROLAR CIERRES OBSOLETOS EN EL BUCE AUTOMÁTICO
+            const partidosRef = React.useRef([]);
+            React.useEffect(() => {
+                partidosRef.current = partidos;
+            }, [partidos]);
+
+            // ESCUDO AUTOMÁTICO 1: CONTROL DE AUTENTICACIÓN REGENERATIVA
             React.useEffect(() => {
                 const savedUid = localStorage.getItem('quiniela_user_uid');
-                auth.onAuthStateChanged(async (u) => {
-                    if (savedUid) {
+                
+                const checarYRecuperarSesion = async (u) => {
+                    if (savedUid && !u) {
                         try {
-                            const doc = await db.collection('usuarios').doc(savedUid).get();
+                            await auth.signInAnonymously();
+                            return; 
+                        } catch (err) {
+                            console.error("Fallo crítico re-autenticando sesión expirada:", err);
+                        }
+                    }
+
+                    const uidActivo = savedUid || (u ? u.uid : null);
+
+                    if (uidActivo) {
+                        try {
+                            const doc = await db.collection('usuarios').doc(uidActivo).get();
                             if (doc.exists) { 
-                                setProfile({ id: savedUid, ...doc.data() }); 
-                                setUser({ uid: savedUid }); 
+                                setProfile({ id: uidActivo, ...doc.data() }); 
+                                setUser({ uid: uidActivo }); 
+                            } else {
+                                localStorage.removeItem('quiniela_user_uid');
+                                setUser(null);
+                                setProfile(null);
                             }
-                        } catch(e) {}
-                    } else if (u) {
-                        const doc = await db.collection('usuarios').doc(u.uid).get();
-                        if (doc.exists) {
-                            setProfile({ id: u.uid, ...doc.data() });
-                            setUser(u);
-                            localStorage.setItem('quiniela_user_uid', u.uid);
+                        } catch(e) {
+                            console.error("Error cargando perfil protegido:", e);
                         }
                     }
                     setIsLoading(false);
+                };
+
+                const unsubAuth = auth.onAuthStateChanged((u) => {
+                    checarYRecuperarSesion(u);
                 });
+                return () => unsubAuth();
             }, []);
 
+            // ESCUDO AUTOMÁTICO 2: MANEJO DE LECTURA PROTEGIDA SIN RIESGO DE CRASHES
             React.useEffect(() => {
                 if (!user) return;
-                const unsubPartidos = db.collection('partidos').orderBy('orden').onSnapshot(snap => {
-                    const pts = [];
-                    snap.forEach(d => pts.push({ id: d.id, ...d.data() }));
-                    setPartidos(pts);
-                });
-                const unsubPreds = db.collection('usuarios').onSnapshot(snap => {
-                    const data = {};
-                    snap.forEach(d => data[d.id] = { id: d.id, ...d.data() });
-                    setPredicciones(data);
-                    if (data[user.uid]) setProfile(data[user.uid]);
-                });
+                
+                const unsubPartidos = db.collection('partidos').orderBy('orden').onSnapshot(
+                    snap => {
+                        const pts = [];
+                        snap.forEach(d => pts.push({ id: d.id, ...d.data() }));
+                        setPartidos(pts);
+                    },
+                    err => console.error("Error silenciado en snapshot de partidos:", err)
+                );
+
+                const unsubPreds = db.collection('usuarios').onSnapshot(
+                    snap => {
+                        const data = {};
+                        snap.forEach(d => data[d.id] = { id: d.id, ...d.data() });
+                        setPredicciones(data);
+                        if (data[user.uid]) setProfile(data[user.uid]);
+                    },
+                    err => console.error("Error silenciado en snapshot de usuarios:", err)
+                );
+
                 return () => { unsubPartidos(); unsubPreds(); };
             }, [user]);
 
             // LISTENER PARA CONFIGURACIONES DEL SISTEMA
             React.useEffect(() => {
-                const unsubConfig = db.collection('sistema').doc('configuracion').onSnapshot(doc => {
-                    if (doc.exists) {
-                        const data = doc.data();
-                        setModoEspiaActivo(data.modo_espia_activo || false);
-                        setPremioMxn(data.premio_mxn || "$4,000");
-                        setPremioCrc(data.premio_crc || "100,000");
-                    }
-                });
+                const unsubConfig = db.collection('sistema').doc('configuracion').onSnapshot(
+                    doc => {
+                        if (doc.exists) {
+                            const data = doc.data();
+                            setModoEspiaActivo(data.modo_espia_activo || false);
+                            setPremioMxn(data.premio_mxn || "$4,000");
+                            setPremioCrc(data.premio_crc || "100,000");
+                        }
+                    },
+                    err => console.error("Error silenciado en snapshot de configuracion:", err)
+                );
                 return () => unsubConfig();
             }, []);
 
@@ -426,39 +468,42 @@
             };
 
             const calcularPuntosGlobal = async () => {
-                const snapshotUsuarios = await db.collection('usuarios').get();
-                const snapshotPartidos = await db.collection('partidos').get();
-                
-                const partidosActualizados = [];
-                snapshotPartidos.forEach(doc => partidosActualizados.push({ id: doc.id, ...doc.data() }));
-
-                const batch = db.batch();
-                
-                snapshotUsuarios.docs.forEach(doc => {
-                    const dataUsuario = doc.data();
-                    const susPicks = dataUsuario.picks || {};
-                    let puntosTotales = 0;
+                try {
+                    const snapshotUsuarios = await db.collection('usuarios').get();
+                    const snapshotPartidos = await db.collection('partidos').get();
                     
-                    partidosActualizados.forEach(p => {
-                        if (p.estado === 'finalizado') {
-                            const pickUsuario = susPicks[p.id]; 
-                            if (pickUsuario) {
-                                // Forzamos la evaluación numérica para que no haya falsos empates
-                                let gl = Number(p.golesL_real);
-                                let gv = Number(p.golesV_real);
-                                let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                                
-                                if (tReal === pickUsuario) puntosTotales += 1;
+                    const partidosActualizados = [];
+                    snapshotPartidos.forEach(doc => partidosActualizados.push({ id: doc.id, ...doc.data() }));
+
+                    const batch = db.batch();
+                    
+                    snapshotUsuarios.docs.forEach(doc => {
+                        const dataUsuario = doc.data();
+                        const susPicks = dataUsuario.picks || {};
+                        let puntosTotales = 0;
+                        
+                        partidosActualizados.forEach(p => {
+                            if (p.estado === 'finalizado') {
+                                const pickUsuario = susPicks[p.id]; 
+                                if (pickUsuario) {
+                                    let gl = Number(p.golesL_real);
+                                    let gv = Number(p.golesV_real);
+                                    let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
+                                    
+                                    if (tReal === pickUsuario) puntosTotales += 1;
+                                }
                             }
-                        }
+                        });
+                        batch.update(doc.ref, { puntos: puntosTotales });
                     });
-                    batch.update(doc.ref, { puntos: puntosTotales });
-                });
-                
-                await batch.commit();
+                    
+                    await batch.commit();
+                } catch (err) {
+                    console.error("Fallo recalculando puntos globales:", err);
+                }
             };
 
-            // EL CORAZÓN DE LA AUTOCORRECCIÓN Y EL ESCUDO ANTI-NULL
+            // EL CORAZÓN DE LA AUTOCORRECCIÓN Y EL ESCUDO ANTI-NULL (CON USO DE REFERENCIAS SEGURAS)
             const handleSyncAPI = async (silencioso = false) => {
                 if (!silencioso) setIsSyncing(true);
                 try {
@@ -472,7 +517,6 @@
                     const batch = db.batch();
 
                     data.matches.forEach(match => {
-                        // ESCUDO 1: Solo avanza si la API reporta FINISHED y los goles NO son null
                         if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
                             
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
@@ -480,18 +524,18 @@
                             const apiGolesL = Number(match.score.fullTime.home);
                             const apiGolesV = Number(match.score.fullTime.away);
                             
-                            const matchDirecto = partidos.find(p => 
+                            // SE USA partidosRef.current PARA IMPEDIR EL ENTORNO OBSOLETO DURANTE SINCRO AUTOMÁTICA
+                            const matchDirecto = partidosRef.current.find(p => 
                                 normalizeName(p.local) === apiHomeTranslated && 
                                 normalizeName(p.visitante) === apiAwayTranslated
                             );
 
-                            const matchInvertido = partidos.find(p => 
+                            const matchInvertido = partidosRef.current.find(p => 
                                 normalizeName(p.local) === apiAwayTranslated && 
                                 normalizeName(p.visitante) === apiHomeTranslated
                             );
                             
                             if (matchDirecto) {
-                                // ESCUDO 2: Autocorrección. Actualiza si está pendiente, o si los goles actuales en Firebase son distintos a los reales
                                 if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV) {
                                     const ref = db.collection('partidos').doc(matchDirecto.id);
                                     batch.update(ref, {
@@ -535,7 +579,7 @@
             };
 
             // ==========================================
-            // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
+            // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA BLINDADO
             // ==========================================
             React.useEffect(() => {
                 if (partidos.length === 0 || !user) return;
@@ -548,26 +592,23 @@
 
                         if (!doc.exists) {
                             await configRef.set({ ultima_sincronizacion: ahora }, { merge: true });
-                            handleSyncAPI(true); // Sincroniza en silencio
+                            handleSyncAPI(true); 
                         } else {
                             const ultimaSync = doc.data().ultima_sincronizacion || 0;
                             const horasPasadas = (ahora - ultimaSync) / (1000 * 60 * 60);
 
-                            // Si pasó más de media hora (0.5), actualiza silenciosamente
                             if (horasPasadas >= 0.5) {
                                 await configRef.update({ ultima_sincronizacion: ahora });
                                 handleSyncAPI(true);
                             }
                         }
                     } catch (error) {
-                        console.log("Sincronización automática en segundo plano omitida.", error);
+                        console.log("Sincronización automática en segundo plano omitida de forma segura.");
                     }
                 };
 
-                // 1. Se ejecuta inmediatamente cuando cualquier persona abre la app
                 checarSincronizacionAutomatica();
 
-                // 2. Latido interno: Revisa la API cada 15 minutos si alguien deja la app abierta en la pantalla
                 const intervalo = setInterval(() => {
                     checarSincronizacionAutomatica();
                 }, 15 * 60 * 1000);
@@ -794,7 +835,7 @@
                                     </button>
                                 </div>
                                 
-                                {!profile.locked && (
+                                {!profile?.locked && (
                                     <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6">
                                         <p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Aún no apareces en el ranking. Debes ir a Grupos y presionar "Guardar y Bloquear".</p>
                                     </div>
@@ -805,7 +846,7 @@
                                         <div 
                                             key={jugador.id} 
                                             onClick={() => {
-                                                if (modoEspiaActivo || jugador.id === profile.id) {
+                                                if (modoEspiaActivo || jugador.id === profile?.id) {
                                                     setSpyUser(jugador);
                                                 } else {
                                                     alert("🕵️‍♂️ El Modo Espía está bloqueado. Se habilitará cuando todos terminen sus pronósticos.");
@@ -813,7 +854,7 @@
                                             }}
                                             className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg ${
                                                 idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D] shadow-[0_0_20px_rgba(197,169,125,0.3)]' : 
-                                                jugador.id === profile.id ? 'bg-white text-black ring-4 ring-[#D31145]' : 
+                                                jugador.id === profile?.id ? 'bg-white text-black ring-4 ring-[#D31145]' : 
                                                 'bg-[#033B25] border border-white/5 text-white'
                                             }`}
                                         >
@@ -830,17 +871,17 @@
                                                 <div>
                                                     <div className="flex items-center gap-2">
                                                         <span className={`font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px] ${idx === 0 ? 'text-white drop-shadow-md' : ''}`}>{jugador.username}</span>
-                                                        {jugador.id === profile.id && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
+                                                        {jugador.id === profile?.id && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
                                                     </div>
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${jugador.id === profile.id ? 'text-gray-500' : 'text-[#C5A97D]/80'}`}>
-                                                        <Icon name={modoEspiaActivo || jugador.id === profile.id ? "eye" : "lock"} size={12} /> 
-                                                        {modoEspiaActivo || jugador.id === profile.id ? 'Toca para espiar' : 'Espionaje Bloqueado 🔒'}
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${jugador.id === profile?.id ? 'text-gray-500' : 'text-[#C5A97D]/80'}`}>
+                                                        <Icon name={modoEspiaActivo || jugador.id === profile?.id ? "eye" : "lock"} size={12} /> 
+                                                        {modoEspiaActivo || jugador.id === profile?.id ? 'Toca para espiar' : 'Espionaje Bloqueado 🔒'}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="text-right pr-2">
                                                 <div className="font-display font-black text-4xl leading-none">{jugador.puntos || 0}</div>
-                                                <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${jugador.id === profile.id ? 'text-[#D31145]' : 'text-[#C5A97D]'}`}>Puntos</div>
+                                                <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${jugador.id === profile?.id ? 'text-[#D31145]' : 'text-[#C5A97D]'}`}>Puntos</div>
                                             </div>
                                         </div>
                                     ))}
