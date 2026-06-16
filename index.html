@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" translate="no">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Bloqueo preventivo de mutaciones de DOM por traductores automáticos que tiran React -->
+    <meta name="google" content="notranslate" />
     <title>Quiniela 2026</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -41,7 +43,22 @@
     <div id="root"></div>
     <script type="text/babel">
         // ==========================================
-        // 1. CONFIGURACIÓN FIREBASE & API
+        // MANEJO DE ERRORES GLOBALES (Evita la pantalla roja de la muerte)
+        // ==========================================
+        window.onerror = function(msg, url, line, col, error) {
+            const rootNode = document.getElementById('root');
+            if (rootNode && rootNode.innerHTML === '') {
+                rootNode.innerHTML = `<div style="padding:30px;color:white;font-family:sans-serif;text-align:center;">
+                    <h2 style="color:#C5A97D;">⚠️ Falla del Sistema</h2>
+                    <p>El navegador bloqueó la ejecución de la aplicación.</p>
+                    <p style="opacity:0.7;font-size:12px;">${msg}</p>
+                    <p style="opacity:0.7;font-size:12px;">Por favor, desactiva los bloqueadores de anuncios (Shields) o permite el almacenamiento local.</p>
+                </div>`;
+            }
+        };
+
+        // ==========================================
+        // 1. CONFIGURACIÓN FIREBASE & API SEGURA
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDdCGvIAt4A5AyF_yOvR5SPJsgPtMWpCYY",
@@ -52,9 +69,27 @@
             appId: "1:1075755299669:web:f565bbd29ee371e60235dc"
         };
 
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        let db = null;
+        let auth = null;
+
+        try {
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+            } else {
+                throw new Error("Firebase no se cargó debido a un bloqueo de red o extensión.");
+            }
+        } catch (e) {
+            console.error("Error inicializando Firebase:", e);
+        }
+
+        // Wrapper Seguro para LocalStorage (Previene crash en Brave Shields)
+        const safeStorage = {
+            get: (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } },
+            set: (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} },
+            remove: (key) => { try { localStorage.removeItem(key); } catch(e) {} }
+        };
 
         // 48 BANDERAS OFICIALES CONFIRMADAS
         const BANDERAS = {
@@ -76,11 +111,11 @@
         const Icon = ({ name, size = 24, className = "" }) => {
             const ref = React.useRef();
             React.useEffect(() => {
-                if (ref.current && window.lucide) {
+                if (ref.current && typeof lucide !== 'undefined') {
                     try {
                         lucide.createIcons({ nameAttr: 'data-lucide', attrs: { class: className, width: size, height: size } });
                     } catch (e) {
-                        console.error("Error al renderizar icono Lucide:", e);
+                        console.error("Lucide Error:", e);
                     }
                 }
             }, [name, size, className]);
@@ -89,7 +124,7 @@
 
         const normalizeName = (str) => {
             if(!str) return "";
-            return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
         const TRADUCTOR_API = {
@@ -113,7 +148,41 @@
         };
 
         // ==========================================
-        // 2. APLICACIÓN PRINCIPAL
+        // COMPONENTE CORTAFUEGOS (Error Boundary)
+        // ==========================================
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            componentDidCatch(error, info) {
+                console.error("React Crashed:", error, info);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#53121F]">
+                            <Icon name="alert-triangle" size={64} className="text-[#C5A97D] mb-4" />
+                            <h1 className="text-2xl font-black text-white mb-2">Error Crítico de Interfaz</h1>
+                            <p className="text-white/70 mb-6 max-w-md">Se detectó una falla al renderizar la aplicación. Esto suele ocurrir por bloqueadores de anuncios agresivos o problemas de caché.</p>
+                            <div className="bg-black/50 p-4 rounded-xl text-left w-full max-w-lg overflow-auto mb-6 border border-white/10">
+                                <code className="text-red-400 text-xs">{this.state.error?.toString()}</code>
+                            </div>
+                            <button onClick={() => window.location.reload()} className="bg-[#D31145] text-white px-6 py-3 rounded-xl font-black shadow-lg hover:scale-105 transition-transform">
+                                REINICIAR APLICACIÓN
+                            </button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // ==========================================
+        // APLICACIÓN PRINCIPAL
         // ==========================================
         const App = () => {
             const [user, setUser] = React.useState(null);
@@ -128,67 +197,62 @@
             const [showAdminModal, setShowAdminModal] = React.useState(false);
             const [isSyncing, setIsSyncing] = React.useState(false);
             
-            // Estados para el Modo Espía
             const [spyUser, setSpyUser] = React.useState(null); 
             const [spySearchTerm, setSpySearchTerm] = React.useState("");
             const [spyFilter, setSpyFilter] = React.useState("all");
             const [modoEspiaActivo, setModoEspiaActivo] = React.useState(false);
 
-            // Estados para Premios Dinámicos
             const [premioMxn, setPremioMxn] = React.useState("$4,000");
             const [premioCrc, setPremioCrc] = React.useState("100,000");
             const [inputMxn, setInputMxn] = React.useState("$4,000");
             const [inputCrc, setInputCrc] = React.useState("100,000");
 
-            // REFERENCIA REACTIVA PARA CONTROLAR CIERRES OBSOLETOS EN EL BUCE AUTOMÁTICO
             const partidosRef = React.useRef([]);
-            React.useEffect(() => {
-                partidosRef.current = partidos;
-            }, [partidos]);
+            React.useEffect(() => { partidosRef.current = partidos; }, [partidos]);
 
-            // ESCUDO AUTOMÁTICO 1: CONTROL DE AUTENTICACIÓN REGENERATIVA
+            // ESCUDO 1: RECUPERACIÓN DE SESIÓN INFALIBLE
             React.useEffect(() => {
-                const savedUid = localStorage.getItem('quiniela_user_uid');
-                
+                if (!auth || !db) {
+                    setIsLoading(false);
+                    return;
+                }
+
                 const checarYRecuperarSesion = async (u) => {
-                    if (savedUid && !u) {
-                        try {
+                    try {
+                        const savedUid = safeStorage.get('quiniela_user_uid');
+                        
+                        if (savedUid && !u) {
                             await auth.signInAnonymously();
-                            return; 
-                        } catch (err) {
-                            console.error("Fallo crítico re-autenticando sesión expirada:", err);
+                            return; // Esperamos al siguiente trigger del observer
                         }
-                    }
 
-                    const uidActivo = savedUid || (u ? u.uid : null);
+                        const uidActivo = savedUid || (u ? u.uid : null);
 
-                    if (uidActivo) {
-                        try {
+                        if (uidActivo) {
                             const doc = await db.collection('usuarios').doc(uidActivo).get();
                             if (doc.exists) { 
                                 setProfile({ id: uidActivo, ...doc.data() }); 
                                 setUser({ uid: uidActivo }); 
                             } else {
-                                localStorage.removeItem('quiniela_user_uid');
+                                safeStorage.remove('quiniela_user_uid');
                                 setUser(null);
                                 setProfile(null);
                             }
-                        } catch(e) {
-                            console.error("Error cargando perfil protegido:", e);
                         }
+                    } catch(e) {
+                        console.error("Error en sesión:", e);
+                    } finally {
+                        setIsLoading(false);
                     }
-                    setIsLoading(false);
                 };
 
-                const unsubAuth = auth.onAuthStateChanged((u) => {
-                    checarYRecuperarSesion(u);
-                });
+                const unsubAuth = auth.onAuthStateChanged((u) => checarYRecuperarSesion(u));
                 return () => unsubAuth();
             }, []);
 
-            // ESCUDO AUTOMÁTICO 2: MANEJO DE LECTURA PROTEGIDA SIN RIESGO DE CRASHES
+            // ESCUDO 2: LECTURAS DE DB SILENCIOSAS ANTE ERRORES
             React.useEffect(() => {
-                if (!user) return;
+                if (!user || !db) return;
                 
                 const unsubPartidos = db.collection('partidos').orderBy('orden').onSnapshot(
                     snap => {
@@ -196,7 +260,7 @@
                         snap.forEach(d => pts.push({ id: d.id, ...d.data() }));
                         setPartidos(pts);
                     },
-                    err => console.error("Error silenciado en snapshot de partidos:", err)
+                    err => console.error("Error lectura partidos:", err)
                 );
 
                 const unsubPreds = db.collection('usuarios').onSnapshot(
@@ -206,14 +270,14 @@
                         setPredicciones(data);
                         if (data[user.uid]) setProfile(data[user.uid]);
                     },
-                    err => console.error("Error silenciado en snapshot de usuarios:", err)
+                    err => console.error("Error lectura usuarios:", err)
                 );
 
                 return () => { unsubPartidos(); unsubPreds(); };
             }, [user]);
 
-            // LISTENER PARA CONFIGURACIONES DEL SISTEMA
             React.useEffect(() => {
+                if (!db) return;
                 const unsubConfig = db.collection('sistema').doc('configuracion').onSnapshot(
                     doc => {
                         if (doc.exists) {
@@ -223,7 +287,7 @@
                             setPremioCrc(data.premio_crc || "100,000");
                         }
                     },
-                    err => console.error("Error silenciado en snapshot de configuracion:", err)
+                    err => console.error("Error lectura config:", err)
                 );
                 return () => unsubConfig();
             }, []);
@@ -235,6 +299,8 @@
 
             const handleLogin = async (e) => {
                 e.preventDefault();
+                if (!db || !auth) { alert("Base de datos no disponible."); return; }
+                
                 const inputName = username.trim();
                 if (!inputName) return;
                 setIsLoading(true);
@@ -245,12 +311,9 @@
                     const allUsersSnap = await db.collection('usuarios').get();
                     const existingUser = allUsersSnap.docs.find(doc => doc.data().username.toLowerCase() === inputName.toLowerCase());
                     
-                    let currentUserUid;
+                    let currentUserUid = existingUser ? existingUser.id : auth.currentUser.uid;
 
-                    if (existingUser) {
-                        currentUserUid = existingUser.id;
-                    } else {
-                        currentUserUid = auth.currentUser.uid;
+                    if (!existingUser) {
                         await db.collection('usuarios').doc(currentUserUid).set({
                             username: inputName, 
                             picks: {}, 
@@ -261,7 +324,7 @@
                     }
 
                     setUser({ uid: currentUserUid });
-                    localStorage.setItem('quiniela_user_uid', currentUserUid);
+                    safeStorage.set('quiniela_user_uid', currentUserUid);
                     
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
@@ -270,50 +333,49 @@
                     setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
 
                 } catch (error) {
-                    alert("Error de conexión."); setIsLoading(false);
+                    console.error("Login falló:", error);
+                    alert("Error de conexión. Revisa tu internet o los bloqueadores de anuncios."); 
+                    setIsLoading(false);
                 }
             };
             
             const guardarTendencia = async (partidoId, tendencia) => {
-                if (!profile || profile.locked) return;
+                if (!profile || profile.locked || !db) return;
                 const picksActuales = profile.picks || {};
                 const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
-                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
+                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick }).catch(e => console.error(e));
             };
 
             const handleBloquearQuiniela = async () => {
+                if (!db) return;
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela para entrar al Ranking Oficial? No podrás hacer más cambios.`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela?`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
                     alert("¡Quiniela Bloqueada Exitosamente!");
                 }
             };
 
-            const handleCloseSpy = () => {
-                setSpyUser(null);
-                setSpySearchTerm("");
-                setSpyFilter("all");
-            };
+            const handleCloseSpy = () => { setSpyUser(null); setSpySearchTerm(""); setSpyFilter("all"); };
 
             const toggleModoEspia = async () => {
+                if (!db) return;
                 const configRef = db.collection('sistema').doc('configuracion');
                 await configRef.set({ modo_espia_activo: !modoEspiaActivo }, { merge: true });
                 alert(modoEspiaActivo ? "Modo Espía BLOQUEADO 🔒" : "Modo Espía DESBLOQUEADO 🔓");
             };
 
             const handleActualizarPremios = async () => {
+                if (!db) return;
                 try {
-                    const configRef = db.collection('sistema').doc('configuracion');
-                    await configRef.set({ premio_mxn: inputMxn, premio_crc: inputCrc }, { merge: true });
-                    alert("🏆 Montos del acumulado actualizados con éxito.");
-                } catch (e) {
-                    alert("Error al actualizar los montos.");
-                }
+                    await db.collection('sistema').doc('configuracion').set({ premio_mxn: inputMxn, premio_crc: inputCrc }, { merge: true });
+                    alert("🏆 Montos del acumulado actualizados.");
+                } catch (e) { alert("Error al actualizar los montos."); }
             };
 
             // PANEL DE ADMINISTRADOR & GENERADOR
             const cargarPartidosBase = async () => {
+                if (!db) return;
                 const PARTIDOS_OFICIALES = [
                     // JORNADA 1
                     { g: 'Grupo A', l: 'México', v: 'Sudáfrica', f: '11 Jun 2026', h: '13:00', s: 'Estadio Azteca, CDMX' },
@@ -398,27 +460,22 @@
                 PARTIDOS_OFICIALES.forEach((p, index) => {
                     const ref = db.collection('partidos').doc();
                     batch.set(ref, {
-                        orden: index + 1,
-                        grupo: p.g,
-                        local: p.l,
-                        visitante: p.v,
-                        fecha: p.f,
-                        hora: p.h,
-                        sede: p.s,
-                        estado: 'pendiente', 
+                        orden: index + 1, grupo: p.g, local: p.l, visitante: p.v,
+                        fecha: p.f, hora: p.h, sede: p.s, estado: 'pendiente', 
                         golesL_real: null, golesV_real: null 
                     });
                 });
 
                 try {
-                    alert("Inyectando 72 partidos de la base de datos oficial FIFA 2026... Espera.");
+                    alert("Inyectando partidos...");
                     await batch.commit();
-                    alert("¡Éxito! Base de datos cargada perfectamente.");
+                    alert("¡Éxito! Base de datos cargada.");
                 } catch(e) { alert("Error al generar partidos."); }
             };
 
             const borrarTodosLosPartidos = async () => {
-                if(confirm("¿Estás seguro de borrar todos los partidos?")) {
+                if (!db) return;
+                if(confirm("¿Borrar todos los partidos?")) {
                     const snapshot = await db.collection('partidos').get();
                     const batch = db.batch();
                     snapshot.docs.forEach((doc) => batch.delete(doc.ref));
@@ -428,46 +485,42 @@
             };
 
             const handleDeleteUser = async (userId, userName) => {
-                if(confirm(`¿ELIMINAR a "${userName}" permanentemente de la base de datos?`)) {
+                if (!db) return;
+                if(confirm(`¿ELIMINAR a "${userName}"?`)) {
                     await db.collection('usuarios').doc(userId).delete();
                     if (userId === user.uid) {
-                        localStorage.removeItem('quiniela_user_uid');
+                        safeStorage.remove('quiniela_user_uid');
                         window.location.reload();
                     }
                 }
             };
 
             const handleUnlockUser = async (userId, userName) => {
-                if(confirm(`¿Desbloquear la quiniela de "${userName}"? Esto le permitirá modificar sus pronósticos.`)) {
+                if (!db) return;
+                if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) {
                     await db.collection('usuarios').doc(userId).update({ locked: false });
-                    alert(`Quiniela de ${userName} desbloqueada.`);
+                    alert(`Quiniela desbloqueada.`);
                 }
             };
 
-            // GUARDA RESULTADOS DESDE EL PANEL ADMIN
             const handleGuardarResultadoManual = async (partidoId) => {
+                if (!db) return;
                 const inputL = document.getElementById(`golesL_${partidoId}`).value;
                 const inputV = document.getElementById(`golesV_${partidoId}`).value;
                 
-                if(inputL === '' || inputV === '') {
-                    alert('Debes ingresar ambos marcadores');
-                    return;
-                }
+                if(inputL === '' || inputV === '') { alert('Debes ingresar ambos marcadores'); return; }
 
                 try {
                     await db.collection('partidos').doc(partidoId).update({
-                        golesL_real: Number(inputL),
-                        golesV_real: Number(inputV),
-                        estado: 'finalizado'
+                        golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado'
                     });
                     await calcularPuntosGlobal();
-                    alert('¡Resultado guardado y puntos recalculados automáticamente!');
-                } catch(e) {
-                    alert('Error guardando el resultado');
-                }
+                    alert('Resultado guardado.');
+                } catch(e) { alert('Error guardando el resultado'); }
             };
 
             const calcularPuntosGlobal = async () => {
+                if (!db) return;
                 try {
                     const snapshotUsuarios = await db.collection('usuarios').get();
                     const snapshotPartidos = await db.collection('partidos').get();
@@ -486,30 +539,26 @@
                             if (p.estado === 'finalizado') {
                                 const pickUsuario = susPicks[p.id]; 
                                 if (pickUsuario) {
-                                    let gl = Number(p.golesL_real);
-                                    let gv = Number(p.golesV_real);
+                                    let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
                                     let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                                    
                                     if (tReal === pickUsuario) puntosTotales += 1;
                                 }
                             }
                         });
                         batch.update(doc.ref, { puntos: puntosTotales });
                     });
-                    
                     await batch.commit();
-                } catch (err) {
-                    console.error("Fallo recalculando puntos globales:", err);
-                }
+                } catch (err) { console.error("Fallo recalculando puntos:", err); }
             };
 
-            // EL CORAZÓN DE LA AUTOCORRECCIÓN Y EL ESCUDO ANTI-NULL (CON USO DE REFERENCIAS SEGURAS)
             const handleSyncAPI = async (silencioso = false) => {
+                if (!db) return;
                 if (!silencioso) setIsSyncing(true);
                 try {
                     const res = await fetch("/api/sync-matches");
-                    const data = await res.json();
+                    if (!res.ok) throw new Error("HTTP Status " + res.status);
                     
+                    const data = await res.json();
                     if (data.error) throw new Error(data.error);
                     if (!data.matches) throw new Error("Sin datos de la API");
 
@@ -517,107 +566,70 @@
                     const batch = db.batch();
 
                     data.matches.forEach(match => {
-                        if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
-                            
+                        if (match.status === 'FINISHED' && match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null) { 
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
                             const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             const apiGolesL = Number(match.score.fullTime.home);
                             const apiGolesV = Number(match.score.fullTime.away);
                             
-                            // SE USA partidosRef.current PARA IMPEDIR EL ENTORNO OBSOLETO DURANTE SINCRO AUTOMÁTICA
-                            const matchDirecto = partidosRef.current.find(p => 
-                                normalizeName(p.local) === apiHomeTranslated && 
-                                normalizeName(p.visitante) === apiAwayTranslated
-                            );
-
-                            const matchInvertido = partidosRef.current.find(p => 
-                                normalizeName(p.local) === apiAwayTranslated && 
-                                normalizeName(p.visitante) === apiHomeTranslated
-                            );
+                            const matchDirecto = partidosRef.current.find(p => normalizeName(p.local) === apiHomeTranslated && normalizeName(p.visitante) === apiAwayTranslated);
+                            const matchInvertido = partidosRef.current.find(p => normalizeName(p.local) === apiAwayTranslated && normalizeName(p.visitante) === apiHomeTranslated);
                             
-                            if (matchDirecto) {
-                                if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV) {
-                                    const ref = db.collection('partidos').doc(matchDirecto.id);
-                                    batch.update(ref, {
-                                        golesL_real: apiGolesL,
-                                        golesV_real: apiGolesV,
-                                        estado: 'finalizado'
-                                    });
-                                    actualizados++;
-                                }
+                            if (matchDirecto && (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV)) {
+                                batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: apiGolesL, golesV_real: apiGolesV, estado: 'finalizado' });
+                                actualizados++;
                             } 
-                            else if (matchInvertido) {
-                                if (matchInvertido.estado === 'pendiente' || matchInvertido.golesL_real !== apiGolesV || matchInvertido.golesV_real !== apiGolesL) {
-                                    const ref = db.collection('partidos').doc(matchInvertido.id);
-                                    batch.update(ref, {
-                                        golesL_real: apiGolesV,
-                                        golesV_real: apiGolesL,
-                                        estado: 'finalizado'
-                                    });
-                                    actualizados++;
-                                }
+                            else if (matchInvertido && (matchInvertido.estado === 'pendiente' || matchInvertido.golesL_real !== apiGolesV || matchInvertido.golesV_real !== apiGolesL)) {
+                                batch.update(db.collection('partidos').doc(matchInvertido.id), { golesL_real: apiGolesV, golesV_real: apiGolesL, estado: 'finalizado' });
+                                actualizados++;
                             }
                         }
                     });
 
-                    const configRef = db.collection('sistema').doc('configuracion');
-                    await configRef.set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
+                    await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
 
                     if (actualizados > 0) {
                         await batch.commit();
                         await calcularPuntosGlobal(); 
-                        if (!silencioso) alert(`¡API Sincronizada y Match Perfecto! ${actualizados} resultados actualizados y corregidos.`);
+                        if (!silencioso) alert(`¡API Sincronizada! ${actualizados} resultados actualizados.`);
                     } else {
-                        if (!silencioso) alert("Conexión con la API Exitosa. Todos los partidos están al día y correctos.");
+                        if (!silencioso) alert("API al día.");
                     }
                 } catch (error) {
-                    if (!silencioso) alert("Error conectando con la API. Revisa la consola para más detalles.");
+                    if (!silencioso) alert("Error conectando con la API.");
                     console.error("Error API:", error);
                 } finally { 
                     if (!silencioso) setIsSyncing(false); 
                 }
             };
 
-            // ==========================================
-            // MOTOR DE SINCRONIZACIÓN AUTOMÁTICA BLINDADO
-            // ==========================================
             React.useEffect(() => {
-                if (partidos.length === 0 || !user) return;
+                if (partidos.length === 0 || !user || !db) return;
 
                 const checarSincronizacionAutomatica = async () => {
                     try {
-                        const configRef = db.collection('sistema').doc('configuracion');
-                        const doc = await configRef.get();
+                        const doc = await db.collection('sistema').doc('configuracion').get();
                         const ahora = new Date().getTime();
 
                         if (!doc.exists) {
-                            await configRef.set({ ultima_sincronizacion: ahora }, { merge: true });
+                            await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: ahora }, { merge: true });
                             handleSyncAPI(true); 
                         } else {
                             const ultimaSync = doc.data().ultima_sincronizacion || 0;
-                            const horasPasadas = (ahora - ultimaSync) / (1000 * 60 * 60);
-
-                            if (horasPasadas >= 0.5) {
-                                await configRef.update({ ultima_sincronizacion: ahora });
+                            if ((ahora - ultimaSync) / 3600000 >= 0.5) {
+                                await db.collection('sistema').doc('configuracion').update({ ultima_sincronizacion: ahora });
                                 handleSyncAPI(true);
                             }
                         }
-                    } catch (error) {
-                        console.log("Sincronización automática en segundo plano omitida de forma segura.");
-                    }
+                    } catch (error) { console.log("Sincronización automática omitida."); }
                 };
 
                 checarSincronizacionAutomatica();
-
-                const intervalo = setInterval(() => {
-                    checarSincronizacionAutomatica();
-                }, 15 * 60 * 1000);
-
+                const intervalo = setInterval(checarSincronizacionAutomatica, 15 * 60 * 1000);
                 return () => clearInterval(intervalo);
             }, [partidos.length, user]);
 
 
-            // PREPARACIÓN DE DATOS PARA MODO ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosFiltrados = [];
 
@@ -626,10 +638,8 @@
                     const pick = spyUser.picks?.[p.id];
                     if (pick) {
                         if (p.estado === 'finalizado') {
-                            let gl = Number(p.golesL_real);
-                            let gv = Number(p.golesV_real);
+                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
                             let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                            
                             if (tReal === pick) spyStats.aciertos++; else spyStats.fallos++;
                         } else {
                             spyStats.pendientes++;
@@ -640,22 +650,17 @@
                 spyPartidosFiltrados = partidos.filter(p => {
                     const pick = spyUser.picks?.[p.id];
                     if (!pick) return false;
-
                     const buscar = spySearchTerm.toLowerCase();
-                    const coincideTexto = p.local.toLowerCase().includes(buscar) || p.visitante.toLowerCase().includes(buscar);
-                    if (!coincideTexto) return false;
+                    if (!p.local.toLowerCase().includes(buscar) && !p.visitante.toLowerCase().includes(buscar)) return false;
 
                     let esCorrecto = null;
                     if (p.estado === 'finalizado') {
-                        let gl = Number(p.golesL_real);
-                        let gv = Number(p.golesV_real);
+                        let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
                         let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
                         esCorrecto = (tReal === pick);
                     }
-
                     if (spyFilter === 'aciertos' && esCorrecto !== true) return false;
                     if (spyFilter === 'fallos' && esCorrecto !== false) return false;
-
                     return true;
                 });
             }
@@ -665,10 +670,8 @@
             if (!user || !profile?.username || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
-                        
                         <div className="w-full max-w-sm panini-gradient p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform -rotate-1 hover:rotate-0 transition-transform duration-500">
                             <div className="border-4 border-[#C5A97D] rounded-xl p-8 text-center bg-[#53121F] relative overflow-hidden">
-                                
                                 <div className="absolute top-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
                                 <div className="absolute top-3 right-3 w-3 h-3 bg-white/20 rounded-full"></div>
                                 <div className="absolute bottom-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
@@ -693,8 +696,6 @@
 
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
-                    
-                    {/* Header Premium */}
                     <div className="bg-[#00623B] pt-safe pb-4 px-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
                         <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full">
                             <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
@@ -714,11 +715,8 @@
                     </div>
 
                     <main className="max-w-6xl mx-auto p-4 pt-6 space-y-4 w-full">
-                        
-                        {/* ====== FASE DE GRUPOS ====== */}
                         {activeTab === 'grupos' && (
                             <div className="animate-fade-in">
-                                
                                 <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
                                     <div className="mb-4 md:mb-0 text-center md:text-left">
                                         <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
@@ -736,11 +734,9 @@
                                     gruposNombres.map(grupo => (
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
-                                            
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                 {partidos.filter(p => p.grupo === grupo).map(partido => {
                                                     const miPick = profile.picks?.[partido.id];
-
                                                     return (
                                                         <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
                                                             {profile.locked && <div className="absolute inset-0 bg-black/10 pointer-events-none z-10"></div>}
@@ -756,39 +752,20 @@
 
                                                             <div className="flex flex-col w-full gap-3 mt-2">
                                                                 <div className="flex items-center justify-between w-full gap-2">
-                                                                    
-                                                                    <button 
-                                                                        onClick={() => guardarTendencia(partido.id, 'local')} 
-                                                                        disabled={profile.locked || partido.estado==='finalizado'} 
-                                                                        className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}
-                                                                    >
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}>
                                                                         <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
                                                                         <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span>
                                                                     </button>
-
-                                                                    <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">
-                                                                        VS
-                                                                    </div>
-
-                                                                    <button 
-                                                                        onClick={() => guardarTendencia(partido.id, 'visitante')} 
-                                                                        disabled={profile.locked || partido.estado==='finalizado'} 
-                                                                        className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}
-                                                                    >
+                                                                    <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}>
                                                                         <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
                                                                         <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span>
                                                                     </button>
                                                                 </div>
-
-                                                                <button 
-                                                                    onClick={() => guardarTendencia(partido.id, 'empate')} 
-                                                                    disabled={profile.locked || partido.estado==='finalizado'} 
-                                                                    className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent shadow-[0_4px_10px_rgba(197,169,125,0.4)] scale-[1.01]' : 'bg-black/20 border-white/5 text-white/60 hover:bg-black/40'}`}
-                                                                >
+                                                                <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent shadow-[0_4px_10px_rgba(197,169,125,0.4)] scale-[1.01]' : 'bg-black/20 border-white/5 text-white/60 hover:bg-black/40'}`}>
                                                                     Empate
                                                                 </button>
                                                             </div>
-
                                                         </div>
                                                     )
                                                 })}
@@ -799,83 +776,48 @@
                             </div>
                         )}
 
-                        {/* ====== FASE ELIMINATORIA ====== */}
                         {activeTab === 'eliminatoria' && (
                             <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8 relative">
                                 <Icon name="lock" size={64} className="text-[#C5A97D] mb-6 opacity-90 drop-shadow-lg" />
                                 <h3 className="text-3xl font-display font-black mb-4 text-white">FASE BLOQUEADA</h3>
-                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span> al terminar los grupos.</p>
+                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span>.</p>
                             </div>
                         )}
 
-                        {/* ====== RANKING ESTILO CASINO ====== */}
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in pb-10">
-                                
                                 <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-[0_0_40px_rgba(197,169,125,0.4)] overflow-hidden">
                                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent opacity-60"></div>
-                                    
                                     <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-1 drop-shadow-md">Gran Premio</h2>
                                     <div className="font-display font-black text-5xl md:text-7xl text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] tracking-tighter mb-0 leading-none">
                                         {premioMxn}<span className="text-2xl md:text-3xl ml-1">MXN</span>
                                     </div>
-                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase tracking-widest opacity-90 drop-shadow-md mt-2">
-                                        o {premioCrc} CRC
-                                    </div>
-                                    
-                                    <button 
-                                        onClick={(e) => { 
-                                            e.preventDefault(); 
-                                            const pass = window.prompt("Contraseña Admin:"); 
-                                            if(pass === "26zorras27") setShowAdminModal(true); 
-                                        }} 
-                                        className="absolute top-3 right-3 bg-black/50 text-[#C5A97D] border border-[#C5A97D]/30 px-3 py-2 rounded-xl text-[10px] font-black tracking-widest z-[60] shadow-xl hover:bg-black"
-                                    >
+                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase tracking-widest opacity-90 drop-shadow-md mt-2">o {premioCrc} CRC</div>
+                                    <button onClick={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }} className="absolute top-3 right-3 bg-black/50 text-[#C5A97D] border border-[#C5A97D]/30 px-3 py-2 rounded-xl text-[10px] font-black tracking-widest z-[60] shadow-xl hover:bg-black">
                                         ⚙️ ADMIN
                                     </button>
                                 </div>
                                 
                                 {!profile?.locked && (
                                     <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6">
-                                        <p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Aún no apareces en el ranking. Debes ir a Grupos y presionar "Guardar y Bloquear".</p>
+                                        <p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Ve a Grupos y presiona "Guardar y Bloquear" para aparecer aquí.</p>
                                     </div>
                                 )}
                                 
                                 <div className="space-y-4">
                                     {Object.values(predicciones).filter(j => j.locked).sort((a,b) => (b.puntos||0) - (a.puntos||0)).map((jugador, idx) => (
-                                        <div 
-                                            key={jugador.id} 
-                                            onClick={() => {
-                                                if (modoEspiaActivo || jugador.id === profile?.id) {
-                                                    setSpyUser(jugador);
-                                                } else {
-                                                    alert("🕵️‍♂️ El Modo Espía está bloqueado. Se habilitará cuando todos terminen sus pronósticos.");
-                                                }
-                                            }}
-                                            className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg ${
-                                                idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D] shadow-[0_0_20px_rgba(197,169,125,0.3)]' : 
-                                                jugador.id === profile?.id ? 'bg-white text-black ring-4 ring-[#D31145]' : 
-                                                'bg-[#033B25] border border-white/5 text-white'
-                                            }`}
-                                        >
+                                        <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === profile?.id) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg ${idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D] shadow-[0_0_20px_rgba(197,169,125,0.3)]' : jugador.id === profile?.id ? 'bg-white text-black ring-4 ring-[#D31145]' : 'bg-[#033B25] border border-white/5 text-white'}`}>
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl drop-shadow-xl ${
-                                                    idx === 0 ? 'text-[#C5A97D] drop-shadow-[0_0_15px_rgba(197,169,125,0.8)]' : 
-                                                    idx === 1 ? 'text-gray-300 drop-shadow-[0_0_15px_rgba(209,213,219,0.6)]' : 
-                                                    idx === 2 ? 'text-[#CD7F32] drop-shadow-[0_0_15px_rgba(205,127,50,0.6)]' : 
-                                                    'text-white/20 text-4xl'
-                                                }`}>
+                                                <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl drop-shadow-xl ${idx === 0 ? 'text-[#C5A97D] drop-shadow-[0_0_15px_rgba(197,169,125,0.8)]' : idx === 1 ? 'text-gray-300 drop-shadow-[0_0_15px_rgba(209,213,219,0.6)]' : idx === 2 ? 'text-[#CD7F32] drop-shadow-[0_0_15px_rgba(205,127,50,0.6)]' : 'text-white/20 text-4xl'}`}>
                                                     {idx + 1}
                                                 </div>
-                                                
                                                 <div>
                                                     <div className="flex items-center gap-2">
                                                         <span className={`font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px] ${idx === 0 ? 'text-white drop-shadow-md' : ''}`}>{jugador.username}</span>
                                                         {jugador.id === profile?.id && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
                                                     </div>
                                                     <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${jugador.id === profile?.id ? 'text-gray-500' : 'text-[#C5A97D]/80'}`}>
-                                                        <Icon name={modoEspiaActivo || jugador.id === profile?.id ? "eye" : "lock"} size={12} /> 
-                                                        {modoEspiaActivo || jugador.id === profile?.id ? 'Toca para espiar' : 'Espionaje Bloqueado 🔒'}
+                                                        <Icon name={modoEspiaActivo || jugador.id === profile?.id ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === profile?.id ? 'Toca para espiar' : 'Bloqueado 🔒'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -885,264 +827,116 @@
                                             </div>
                                         </div>
                                     ))}
-                                    {Object.values(predicciones).filter(j => j.locked).length === 0 && <p className="text-center text-[#C5A97D]/50 font-black tracking-widest uppercase py-10">La mesa está vacía</p>}
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    {/* ====== MODAL ESPÍA ====== */}
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in">
                             <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-[0_0_40px_rgba(197,169,125,0.3)] overflow-hidden">
-                                
                                 <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5 shadow-lg">
                                     <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h2 className="font-display font-black text-2xl text-white uppercase tracking-wide drop-shadow-md leading-tight">
-                                                Apuestas de <br className="block md:hidden"/><span className="text-[#C5A97D]">{spyUser.username}</span>
-                                            </h2>
-                                        </div>
-                                        <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3 hover:bg-black transition-colors active:scale-95 touch-manipulation">
-                                            <Icon name="x" size={24} />
-                                        </button>
+                                        <h2 className="font-display font-black text-2xl text-white uppercase tracking-wide drop-shadow-md leading-tight">Apuestas de <br className="block md:hidden"/><span className="text-[#C5A97D]">{spyUser.username}</span></h2>
+                                        <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3 hover:bg-black transition-colors"><Icon name="x" size={24} /></button>
                                     </div>
-
                                     <div className="grid grid-cols-3 gap-2 mb-4">
-                                        <div className="bg-green-900/40 border border-green-500/50 rounded-xl p-2 flex flex-col items-center justify-center shadow-inner">
-                                            <span className="text-xl md:text-2xl font-black text-green-400 leading-none">{spyStats.aciertos}</span>
-                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-green-200 mt-1 tracking-widest">Aciertos</span>
-                                        </div>
-                                        <div className="bg-red-900/40 border border-red-500/50 rounded-xl p-2 flex flex-col items-center justify-center shadow-inner">
-                                            <span className="text-xl md:text-2xl font-black text-red-400 leading-none">{spyStats.fallos}</span>
-                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-red-200 mt-1 tracking-widest">Fallos</span>
-                                        </div>
-                                        <div className="bg-black/30 border border-[#C5A97D]/20 rounded-xl p-2 flex flex-col items-center justify-center shadow-inner">
-                                            <span className="text-xl md:text-2xl font-black text-[#C5A97D] leading-none">{spyStats.pendientes}</span>
-                                            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[#C5A97D]/70 mt-1 tracking-widest">Pendientes</span>
-                                        </div>
+                                        <div className="bg-green-900/40 border border-green-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-green-400 leading-none">{spyStats.aciertos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-green-200 mt-1">Aciertos</span></div>
+                                        <div className="bg-red-900/40 border border-red-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-red-400 leading-none">{spyStats.fallos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-red-200 mt-1">Fallos</span></div>
+                                        <div className="bg-black/30 border border-[#C5A97D]/20 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-[#C5A97D] leading-none">{spyStats.pendientes}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-[#C5A97D]/70 mt-1">Pendientes</span></div>
                                     </div>
-
                                     <div className="flex flex-col gap-3">
-                                        <div className="relative w-full">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <Icon name="search" size={16} className="text-[#C5A97D]/50" />
-                                            </div>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Buscar por equipo..." 
-                                                value={spySearchTerm}
-                                                onChange={e => setSpySearchTerm(e.target.value)}
-                                                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm font-bold focus:outline-none focus:border-[#C5A97D] transition-colors shadow-inner"
-                                            />
-                                        </div>
+                                        <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm font-bold focus:outline-none focus:border-[#C5A97D]" /></div>
                                         <div className="flex gap-2 w-full overflow-x-auto hide-scrollbar pb-1">
                                             {['all', 'aciertos', 'fallos'].map(f => (
-                                                <button 
-                                                    key={f}
-                                                    onClick={() => setSpyFilter(f)}
-                                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                                                        spyFilter === f 
-                                                            ? 'bg-[#C5A97D] text-[#53121F] shadow-[0_0_10px_rgba(197,169,125,0.4)]' 
-                                                            : 'bg-black/30 text-[#C5A97D]/70 border border-white/5 hover:bg-black/50'
-                                                    }`}
-                                                >
-                                                    {f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}
-                                                </button>
+                                                <button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
-                                
                                 <div className="overflow-y-auto custom-scrollbar p-4 space-y-3 bg-[#033B25]/90 flex-1">
-                                    {spyPartidosFiltrados.length === 0 ? (
-                                        <div className="text-center py-10">
-                                            <Icon name="search-x" size={48} className="mx-auto text-white/20 mb-4" />
-                                            <p className="text-[#C5A97D]/50 font-black tracking-widest uppercase text-sm">No se encontraron resultados</p>
-                                        </div>
-                                    ) : (
-                                        spyPartidosFiltrados.map(partido => {
-                                            const suPick = spyUser.picks?.[partido.id];
-                                            
-                                            let esCorrecto = null;
-                                            if (partido.estado === 'finalizado') {
-                                                let gl = Number(partido.golesL_real);
-                                                let gv = Number(partido.golesV_real);
-                                                let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                                                esCorrecto = (tReal === suPick);
-                                            }
-
-                                            return (
-                                                <div key={partido.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all shadow-md ${
-                                                    esCorrecto === true ? 'bg-green-900/40 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 
-                                                    esCorrecto === false ? 'bg-red-900/40 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 
-                                                    'bg-black/40 border-white/10'
-                                                }`}>
-                                                    <div className="flex items-center gap-2 w-1/2 md:gap-3">
-                                                        <span className="text-2xl drop-shadow-md">{getBandera(partido.local)}</span>
-                                                        <span className="text-[10px] text-white/40 font-black italic">VS</span>
-                                                        <span className="text-2xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                                                    </div>
-                                                    <div className="w-1/2 flex justify-end">
-                                                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${
-                                                            esCorrecto === true ? 'bg-green-500 text-white' : 
-                                                            esCorrecto === false ? 'bg-red-500 text-white' : 
-                                                            'bg-[#C5A97D] text-[#53121F]'
-                                                        }`}>
-                                                            {esCorrecto === true && <Icon name="check" size={14} />}
-                                                            {esCorrecto === false && <Icon name="x" size={14} />}
-                                                            {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
-                                                        </span>
-                                                    </div>
+                                    {spyPartidosFiltrados.map(partido => {
+                                        const suPick = spyUser.picks?.[partido.id];
+                                        let esCorrecto = null;
+                                        if (partido.estado === 'finalizado') {
+                                            let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
+                                            esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
+                                        }
+                                        return (
+                                            <div key={partido.id} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-black/40 border-white/10'}`}>
+                                                <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
+                                                <div className="w-1/2 flex justify-end">
+                                                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
+                                                        {esCorrecto === true && <Icon name="check" size={14} />}{esCorrecto === false && <Icon name="x" size={14} />}{suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
+                                                    </span>
                                                 </div>
-                                            );
-                                        })
-                                    )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* ====== MODAL ADMIN ====== */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
                                 <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2"><Icon name="x" size={24} /></button>
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4">Panel de Control</h2>
-                                
                                 <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                                    
-                                    {/* SECCIÓN NUEVA: CARGA MANUAL DE RESULTADOS */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest flex items-center gap-2">
-                                            <Icon name="pen-tool" size={14}/> Carga Manual de Resultados
-                                        </p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual de Resultados</p>
                                         <div className="max-h-48 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                                             {partidos.map(p => (
                                                 <div key={p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
                                                     <div className="flex items-center justify-between w-full">
                                                         <span className="text-xs font-bold w-1/3 truncate text-right pr-2">{p.local}</span>
                                                         <div className="flex items-center gap-1">
-                                                            <input 
-                                                                type="number" 
-                                                                min="0"
-                                                                defaultValue={p.golesL_real !== null ? p.golesL_real : ''}
-                                                                id={`golesL_${p.id}`}
-                                                                className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 focus:outline-none focus:border-white"
-                                                            />
+                                                            <input type="number" min="0" defaultValue={p.golesL_real ?? ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5" />
                                                             <span className="text-xs text-white/50 font-bold">-</span>
-                                                            <input 
-                                                                type="number" 
-                                                                min="0"
-                                                                defaultValue={p.golesV_real !== null ? p.golesV_real : ''}
-                                                                id={`golesV_${p.id}`}
-                                                                className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 focus:outline-none focus:border-white"
-                                                            />
+                                                            <input type="number" min="0" defaultValue={p.golesV_real ?? ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5" />
                                                         </div>
                                                         <span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span>
                                                     </div>
-                                                    <button 
-                                                        onClick={() => handleGuardarResultadoManual(p.id)}
-                                                        className="w-full bg-[#00623B] hover:bg-green-700 text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest mt-1 transition-colors"
-                                                    >
-                                                        Cerrar Partido y Puntear
-                                                    </button>
+                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1">Cerrar y Puntear</button>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Motor de Resultados Automático</p>
-                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3 disabled:opacity-50 flex justify-center items-center gap-2">
-                                            <Icon name={isSyncing ? "loader" : "globe"} size={16} className={isSyncing ? "animate-spin" : ""} /> 1. Sincronizar API y Puntos
-                                        </button>
-                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">2. Forzar Recálculo Puntos</button>
+                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3">Sincronizar API y Puntos</button>
+                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">Forzar Recálculo</button>
                                     </div>
-
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Configuración de Premios</p>
                                         <div className="space-y-3 mb-4">
-                                            <div>
-                                                <label className="text-[10px] text-white/60 font-black uppercase tracking-wider block mb-1">Premio en Pesos (MXN)</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={inputMxn} 
-                                                    onChange={e => setInputMxn(e.target.value)} 
-                                                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-bold focus:outline-none focus:border-[#C5A97D]" 
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-white/60 font-black uppercase tracking-wider block mb-1">Premio en Colones (CRC)</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={inputCrc} 
-                                                    onChange={e => setInputCrc(e.target.value)} 
-                                                    className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-bold focus:outline-none focus:border-[#C5A97D]" 
-                                                />
-                                            </div>
+                                            <div><label className="text-[10px] text-white/60 font-black uppercase">Premio MXN</label><input type="text" value={inputMxn} onChange={e => setInputMxn(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" /></div>
+                                            <div><label className="text-[10px] text-white/60 font-black uppercase">Premio CRC</label><input type="text" value={inputCrc} onChange={e => setInputCrc(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" /></div>
                                         </div>
-                                        <button 
-                                            onClick={handleActualizarPremios} 
-                                            className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-amber-600 transition-colors"
-                                        >
-                                            Guardar Montos
-                                        </button>
+                                        <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase">Guardar Montos</button>
                                     </div>
-
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={borrarTodosLosPartidos} className="w-full border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl mb-3">Borrar Todo</button><button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl">Generar 72 Partidos</button></div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Control de Espionaje</p>
-                                        <button 
-                                            onClick={toggleModoEspia} 
-                                            className={`w-full font-black py-3 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 ${modoEspiaActivo ? 'bg-[#D31145] text-white' : 'bg-[#00623B] text-white'}`}
-                                        >
-                                            <Icon name={modoEspiaActivo ? "lock" : "unlock"} size={18} />
-                                            {modoEspiaActivo ? 'BLOQUEAR MODO ESPÍA' : 'HABILITAR MODO ESPÍA'}
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Torneo Oficial FIFA</p>
-                                        <button onClick={borrarTodosLosPartidos} className="w-full bg-transparent border border-[#D31145] text-[#D31145] font-black py-2 rounded-xl hover:bg-[#D31145] hover:text-white transition-all mb-3">Borrar Todo</button>
-                                        <button onClick={cargarPartidosBase} className="w-full bg-white text-[#00623B] font-black py-3 rounded-xl shadow-lg">Generar 72 Partidos Reales</button>
-                                    </div>
-
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestionar Usuarios</p>
-                                        <div className="space-y-2">
-                                            {Object.values(predicciones).map(j => (
-                                                <div key={j.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-black/40 p-3 rounded-xl border border-white/5 gap-2">
-                                                    <span className="font-bold text-sm uppercase truncate w-full sm:max-w-[150px] flex items-center gap-2">
-                                                        {j.locked ? '🔒' : '🔓'} {j.username}
-                                                    </span>
-                                                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                                                        {j.locked && (
-                                                            <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-green-700 transition-colors">
-                                                                Desbloquear
-                                                            </button>
-                                                        )}
-                                                        <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg text-xs font-black hover:bg-red-700 transition-colors">
-                                                            Eliminar
-                                                        </button>
-                                                    </div>
+                                        {Object.values(predicciones).map(j => (
+                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
+                                                <span className="font-bold text-xs uppercase">{j.locked ? '🔒' : '🔓'} {j.username}</span>
+                                                <div className="flex gap-2">
+                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black">Desbloquear</button>}
+                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black">Eliminar</button>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
-                    
-                    <div className="fixed bottom-2 right-3 z-0 pointer-events-none opacity-[0.03] text-white font-black text-xs tracking-widest">
-                        ZORRAS
-                    </div>
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
