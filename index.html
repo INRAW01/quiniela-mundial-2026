@@ -49,7 +49,7 @@
     <div id="root"></div>
     <script type="text/babel">
         // ==========================================
-        // SISTEMA DE ICONOS SVG NATIVOS (0 Dependencias Externas)
+        // SISTEMA DE ICONOS SVG NATIVOS
         // ==========================================
         const Icon = ({ name, size = 24, className = "" }) => {
             const icons = {
@@ -63,11 +63,7 @@
                 'eye': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
                 'x': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
                 'check': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
-                'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
-                'search-x': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m13.5 8.5-5 5"></path><path d="m8.5 8.5 5 5"></path><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>,
-                'pen-tool': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19 7-7 3 3-7 7-3-3z"></path><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="m2 2 7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>,
-                'globe': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>,
-                'loader': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             };
             return icons[name] || <svg width={size} height={size}></svg>;
         };
@@ -197,7 +193,7 @@
             React.useEffect(() => { partidosRef.current = partidos; }, [partidos]);
 
             // ==========================================
-            // MOTOR DE CÁLCULO EN VIVO (Elimina la Inconsistencia)
+            // MOTOR DE CÁLCULO EN VIVO
             // ==========================================
             const calcularPuntosEnVivo = (jugador) => {
                 if (!partidos || partidos.length === 0) return 0;
@@ -370,7 +366,8 @@
                     let actualizados = 0;
 
                     data.matches.forEach(match => {
-                        if (match.status === 'FINISHED' && match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null) { 
+                        // SINTAXIS SEGURA (Eliminado el ?.)
+                        if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
                             const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             const apiGolesL = Number(match.score.fullTime.home);
@@ -410,7 +407,6 @@
                 return () => clearInterval(intervalo);
             }, [partidos.length, user]);
 
-            // PREPARACIÓN DE DATOS PARA MODAL ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosFiltrados = [];
 
@@ -465,7 +461,6 @@
             partidos.forEach(p => { if (gruposNombres.indexOf(p.grupo) === -1) gruposNombres.push(p.grupo); });
             gruposNombres.sort();
 
-            // CONSTRUCCIÓN DEL RANKING DINÁMICO EN VIVO
             const rankingEnVivo = Object.values(predicciones)
                 .filter(j => j.locked)
                 .map(jugador => ({
@@ -477,10 +472,9 @@
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
                     
-                    {/* BOTÓN ADMIN FIJO PARA CELULAR (Súper Capa z-[9999] y Soporte Táctil) */}
                     <button 
-                        onClick={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }} 
-                        onTouchStart={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }}
+                        onClick={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña:"); if(pwd === "26zorras27") setShowAdminModal(true); }} 
+                        onTouchStart={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña:"); if(pwd === "26zorras27") setShowAdminModal(true); }}
                         className="fixed top-3 right-3 bg-black/70 text-[#C5A97D] border border-[#C5A97D]/40 px-3 py-2 rounded-xl text-[10px] font-black tracking-widest z-[9999] shadow-2xl active:scale-95"
                     >
                         ⚙️ ADMIN
@@ -525,7 +519,8 @@
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {partidos.filter(p => p.grupo === group => p.grupo === grupo).map(partido => {
+                                                {/* SINTAXIS SEGURA (Eliminado el error de tipeo "group =>") */}
+                                                {partidos.filter(p => p.grupo === grupo).map(partido => {
                                                     const miPick = profile.picks && profile.picks[partido.id];
                                                     return (
                                                         <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
@@ -607,7 +602,6 @@
                                                 </div>
                                             </div>
                                             <div className="text-right pr-2">
-                                                {/* CAMBIO VITAL: Ahora pinta los puntos recalculados instantáneamente */}
                                                 <div className="font-display font-black text-4xl leading-none">{jugador.puntosCalculados}</div>
                                                 <div className="text-[10px] font-black tracking-widest uppercase mt-1">Puntos</div>
                                             </div>
