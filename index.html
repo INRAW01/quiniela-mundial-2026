@@ -73,7 +73,7 @@
         };
 
         // ==========================================
-        // 1. CONFIGURACIÓN FIREBASE & API SEGURA
+        // CONEXIÓN FIREBASE
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDdCGvIAt4A5AyF_yOvR5SPJsgPtMWpCYY",
@@ -162,9 +162,6 @@
                             <Icon name="alert-triangle" size={64} className="text-[#C5A97D] mb-4 mx-auto" />
                             <h1 className="text-2xl font-black text-white mb-2">Error de Ejecución</h1>
                             <p className="text-white/70 mb-6 max-w-md">La aplicación encontró un dato inesperado. Por favor reinicia.</p>
-                            <div className="bg-black/50 p-4 rounded-xl text-left w-full max-w-lg overflow-auto mb-6 border border-white/10">
-                                <code className="text-red-400 text-xs">{this.state.error ? this.state.error.toString() : 'Error Desconocido'}</code>
-                            </div>
                             <button onClick={() => window.location.reload()} className="bg-[#D31145] text-white px-6 py-3 rounded-xl font-black shadow-lg">REINICIAR</button>
                         </div>
                     );
@@ -199,23 +196,39 @@
             const partidosRef = React.useRef([]);
             React.useEffect(() => { partidosRef.current = partidos; }, [partidos]);
 
+            // ==========================================
+            // MOTOR DE CÁLCULO EN VIVO (Elimina la Inconsistencia)
+            // ==========================================
+            const calcularPuntosEnVivo = (jugador) => {
+                if (!partidos || partidos.length === 0) return 0;
+                let aciertos = 0;
+                const picks = jugador.picks || {};
+                
+                partidos.forEach(p => {
+                    if (p.estado === 'finalizado') {
+                        const suPick = picks[p.id];
+                        if (suPick) {
+                            let gl = Number(p.golesL_real);
+                            let gv = Number(p.golesV_real);
+                            let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
+                            if (resultadoReal === suPick) aciertos++;
+                        }
+                    }
+                });
+                return aciertos;
+            };
+
             React.useEffect(() => {
-                if (!auth || !db) {
-                    setIsLoading(false);
-                    return;
-                }
+                if (!auth || !db) { setIsLoading(false); return; }
 
                 const checarYRecuperarSesion = async (u) => {
                     try {
                         const savedUid = safeStorage.get('quiniela_user_uid');
-                        
                         if (savedUid && !u) {
                             await auth.signInAnonymously();
                             return; 
                         }
-
                         const uidActivo = savedUid || (u ? u.uid : null);
-
                         if (uidActivo) {
                             const doc = await db.collection('usuarios').doc(uidActivo).get();
                             if (doc.exists) { 
@@ -227,11 +240,7 @@
                                 setProfile(null);
                             }
                         }
-                    } catch(e) {
-                        console.error("Error en sesión:", e);
-                    } finally {
-                        setIsLoading(false);
-                    }
+                    } catch(e) { console.error(e); } finally { setIsLoading(false); }
                 };
 
                 const unsubAuth = auth.onAuthStateChanged((u) => checarYRecuperarSesion(u));
@@ -280,56 +289,41 @@
             }, []);
 
             React.useEffect(() => {
-                setInputMxn(premioMxn);
-                setInputCrc(premioCrc);
+                setInputMxn(premioMxn); setInputCrc(premioCrc);
             }, [premioMxn, premioCrc]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
-                if (!db || !auth) { alert("Error de conexión a Firebase."); return; }
-                
+                if (!db || !auth) return;
                 const inputName = username.trim();
                 if (!inputName) return;
                 setIsLoading(true);
                 
                 try {
                     if (!auth.currentUser) await auth.signInAnonymously();
-
                     const allUsersSnap = await db.collection('usuarios').get();
                     const existingUser = allUsersSnap.docs.find(doc => doc.data().username.toLowerCase() === inputName.toLowerCase());
-                    
                     let currentUserUid = existingUser ? existingUser.id : auth.currentUser.uid;
 
                     if (!existingUser) {
                         await db.collection('usuarios').doc(currentUserUid).set({
-                            username: inputName, 
-                            picks: {}, 
-                            puntos: 0, 
-                            locked: false, 
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            username: inputName, picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
-
                     setUser({ uid: currentUserUid });
                     safeStorage.set('quiniela_user_uid', currentUserUid);
-                    
                     const doc = await db.collection('usuarios').doc(currentUserUid).get();
                     setProfile({ id: currentUserUid, ...doc.data() });
-                    
                     setIsLoginExiting(true); 
                     setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
-
-                } catch (error) {
-                    alert("Error. Revisa tu internet."); 
-                    setIsLoading(false);
-                }
+                } catch (error) { setIsLoading(false); }
             };
             
             const guardarTendencia = async (partidoId, tendencia) => {
                 if (!profile || profile.locked || !db) return;
                 const picksActuales = profile.picks || {};
                 const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
-                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick }).catch(e => console.error(e));
+                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
             };
 
             const handleBloquearQuiniela = async () => {
@@ -348,63 +342,20 @@
                 if (!db) return;
                 const configRef = db.collection('sistema').doc('configuracion');
                 await configRef.set({ modo_espia_activo: !modoEspiaActivo }, { merge: true });
-                alert(modoEspiaActivo ? "Modo Espía BLOQUEADO 🔒" : "Modo Espía DESBLOQUEADO 🔓");
             };
 
             const handleActualizarPremios = async () => {
                 if (!db) return;
-                try {
-                    await db.collection('sistema').doc('configuracion').set({ premio_mxn: inputMxn, premio_crc: inputCrc }, { merge: true });
-                    alert("🏆 Montos del acumulado actualizados.");
-                } catch (e) { alert("Error al actualizar."); }
+                await db.collection('sistema').doc('configuracion').set({ premio_mxn: inputMxn, premio_crc: inputCrc }, { merge: true });
+                alert("Montos actualizados.");
             };
 
             const handleGuardarResultadoManual = async (partidoId) => {
                 if (!db) return;
                 const inputL = document.getElementById(`golesL_${partidoId}`).value;
                 const inputV = document.getElementById(`golesV_${partidoId}`).value;
-                
-                if(inputL === '' || inputV === '') { alert('Debes ingresar ambos marcadores'); return; }
-
-                try {
-                    await db.collection('partidos').doc(partidoId).update({
-                        golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado'
-                    });
-                    await calcularPuntosGlobal();
-                    alert('Resultado guardado.');
-                } catch(e) { alert('Error guardando el resultado'); }
-            };
-
-            const calcularPuntosGlobal = async () => {
-                if (!db) return;
-                try {
-                    const snapshotUsuarios = await db.collection('usuarios').get();
-                    const snapshotPartidos = await db.collection('partidos').get();
-                    
-                    const partidosActualizados = [];
-                    snapshotPartidos.forEach(doc => partidosActualizados.push({ id: doc.id, ...doc.data() }));
-
-                    const batch = db.batch();
-                    
-                    snapshotUsuarios.docs.forEach(doc => {
-                        const dataUsuario = doc.data();
-                        const susPicks = dataUsuario.picks || {};
-                        let puntosTotales = 0;
-                        
-                        partidosActualizados.forEach(p => {
-                            if (p.estado === 'finalizado') {
-                                const pickUsuario = susPicks[p.id]; 
-                                if (pickUsuario) {
-                                    let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                                    let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                                    if (tReal === pickUsuario) puntosTotales += 1;
-                                }
-                            }
-                        });
-                        batch.update(doc.ref, { puntos: puntosTotales });
-                    });
-                    await batch.commit();
-                } catch (err) { console.error("Fallo recalculando puntos:", err); }
+                if(inputL === '' || inputV === '') return;
+                await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' });
             };
 
             const handleSyncAPI = async (silencioso = false) => {
@@ -412,61 +363,36 @@
                 if (!silencioso) setIsSyncing(true);
                 try {
                     const res = await fetch("/api/sync-matches");
-                    if (!res.ok) throw new Error("HTTP Status " + res.status);
-                    
                     const data = await res.json();
-                    if (data.error) throw new Error(data.error);
-                    if (!data.matches) throw new Error("Sin datos de la API");
+                    if (!data.matches) return;
 
-                    let actualizados = 0;
                     const batch = db.batch();
+                    let actualizados = 0;
 
                     data.matches.forEach(match => {
-                        if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
+                        if (match.status === 'FINISHED' && match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null) { 
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
                             const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             const apiGolesL = Number(match.score.fullTime.home);
                             const apiGolesV = Number(match.score.fullTime.away);
                             
                             const matchDirecto = partidosRef.current.find(p => normalizeName(p.local) === apiHomeTranslated && normalizeName(p.visitante) === apiAwayTranslated);
-                            const matchInvertido = partidosRef.current.find(p => normalizeName(p.local) === apiAwayTranslated && normalizeName(p.visitante) === apiHomeTranslated);
-                            
                             if (matchDirecto && (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV)) {
                                 batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: apiGolesL, golesV_real: apiGolesV, estado: 'finalizado' });
                                 actualizados++;
                             } 
-                            else if (matchInvertido && (matchInvertido.estado === 'pendiente' || matchInvertido.golesL_real !== apiGolesV || matchInvertido.golesV_real !== apiGolesL)) {
-                                batch.update(db.collection('partidos').doc(matchInvertido.id), { golesL_real: apiGolesV, golesV_real: apiGolesL, estado: 'finalizado' });
-                                actualizados++;
-                            }
                         }
                     });
-
-                    await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: new Date().getTime() }, { merge: true });
-
-                    if (actualizados > 0) {
-                        await batch.commit();
-                        await calcularPuntosGlobal(); 
-                        if (!silencioso) alert(`¡API Sincronizada! ${actualizados} resultados actualizados.`);
-                    } else {
-                        if (!silencioso) alert("API al día.");
-                    }
-                } catch (error) {
-                    if (!silencioso) alert("Error conectando con la API.");
-                    console.error("Error API:", error);
-                } finally { 
-                    if (!silencioso) setIsSyncing(false); 
-                }
+                    if (actualizados > 0) await batch.commit();
+                } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
             };
 
             React.useEffect(() => {
                 if (partidos.length === 0 || !user || !db) return;
-
                 const checarSincronizacionAutomatica = async () => {
                     try {
                         const doc = await db.collection('sistema').doc('configuracion').get();
                         const ahora = new Date().getTime();
-
                         if (!doc.exists) {
                             await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: ahora }, { merge: true });
                             handleSyncAPI(true); 
@@ -479,26 +405,24 @@
                         }
                     } catch (error) {}
                 };
-
                 checarSincronizacionAutomatica();
                 const intervalo = setInterval(checarSincronizacionAutomatica, 15 * 60 * 1000);
                 return () => clearInterval(intervalo);
             }, [partidos.length, user]);
 
+            // PREPARACIÓN DE DATOS PARA MODAL ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosFiltrados = [];
 
             if (spyUser) {
+                spyStats.aciertos = calcularPuntosEnVivo(spyUser);
                 partidos.forEach(p => {
                     const pick = spyUser.picks && spyUser.picks[p.id];
                     if (pick) {
                         if (p.estado === 'finalizado') {
                             let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                            let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                            if (tReal === pick) spyStats.aciertos++; else spyStats.fallos++;
-                        } else {
-                            spyStats.pendientes++;
-                        }
+                            if (((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) !== pick)) spyStats.fallos++;
+                        } else { spyStats.pendientes++; }
                     }
                 });
 
@@ -507,12 +431,10 @@
                     if (!pick) return false;
                     const buscar = spySearchTerm.toLowerCase();
                     if (!p.local.toLowerCase().includes(buscar) && !p.visitante.toLowerCase().includes(buscar)) return false;
-
                     let esCorrecto = null;
                     if (p.estado === 'finalizado') {
                         let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                        let tReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                        esCorrecto = (tReal === pick);
+                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === pick);
                     }
                     if (spyFilter === 'aciertos' && esCorrecto !== true) return false;
                     if (spyFilter === 'fallos' && esCorrecto !== false) return false;
@@ -527,19 +449,11 @@
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
                         <div className="w-full max-w-sm panini-gradient p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform -rotate-1 hover:rotate-0 transition-transform duration-500">
                             <div className="border-4 border-[#C5A97D] rounded-xl p-8 text-center bg-[#53121F] relative overflow-hidden">
-                                <div className="absolute top-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
-                                <div className="absolute top-3 right-3 w-3 h-3 bg-white/20 rounded-full"></div>
-                                <div className="absolute bottom-3 left-3 w-3 h-3 bg-white/20 rounded-full"></div>
-                                <div className="absolute bottom-3 right-3 w-3 h-3 bg-white/20 rounded-full"></div>
-
                                 <h1 className="text-8xl font-black text-white font-display italic drop-shadow-lg tracking-tighter mt-4">26</h1>
                                 <h2 className="text-3xl font-black tracking-widest text-[#C5A97D] uppercase mt-0 mb-8">Quiniela</h2>
-                                
                                 <form onSubmit={handleLogin} className="relative z-10">
-                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Ingresa tu nombre" className="w-full px-4 py-4 rounded-xl border-4 border-gray-200 text-black font-black focus:border-[#C5A97D] outline-none mb-6 text-center text-xl uppercase shadow-inner" required />
-                                    <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] border-2 border-white/20 text-white font-black py-4 rounded-xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 shadow-xl">
-                                        ENTRAR AL JUEGO
-                                    </button>
+                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Ingresa tu nombre" className="w-full px-4 py-4 rounded-xl border-4 border-gray-200 text-black font-black focus:border-[#C5A97D] outline-none mb-6 text-center text-xl uppercase" required />
+                                    <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] border-2 border-white/20 text-white font-black py-4 rounded-xl shadow-xl">ENTRAR AL JUEGO</button>
                                 </form>
                             </div>
                         </div>
@@ -551,10 +465,29 @@
             partidos.forEach(p => { if (gruposNombres.indexOf(p.grupo) === -1) gruposNombres.push(p.grupo); });
             gruposNombres.sort();
 
+            // CONSTRUCCIÓN DEL RANKING DINÁMICO EN VIVO
+            const rankingEnVivo = Object.values(predicciones)
+                .filter(j => j.locked)
+                .map(jugador => ({
+                    ...jugador,
+                    puntosCalculados: calcularPuntosEnVivo(jugador)
+                }))
+                .sort((a, b) => b.puntosCalculados - a.puntosCalculados);
+
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
+                    
+                    {/* BOTÓN ADMIN FIJO PARA CELULAR (Súper Capa z-[9999] y Soporte Táctil) */}
+                    <button 
+                        onClick={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }} 
+                        onTouchStart={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }}
+                        className="fixed top-3 right-3 bg-black/70 text-[#C5A97D] border border-[#C5A97D]/40 px-3 py-2 rounded-xl text-[10px] font-black tracking-widest z-[9999] shadow-2xl active:scale-95"
+                    >
+                        ⚙️ ADMIN
+                    </button>
+
                     <div className="bg-[#00623B] pb-4 px-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
-                        <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full">
+                        <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full pr-16">
                             <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
                                 <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span>
                             </h1>
@@ -564,7 +497,7 @@
                         </div>
                         <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2">
                             {['Grupos', 'Eliminatoria', 'Ranking'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab.toLowerCase())} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.toLowerCase() ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80 hover:bg-black/40'}`}>
+                                <button key={tab} onClick={() => setActiveTab(tab.toLowerCase())} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.toLowerCase() ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>
                                     {tab === 'Grupos' ? 'Fase de Grupos' : tab === 'Eliminatoria' ? 'Fase Eliminatoria' : tab}
                                 </button>
                             ))}
@@ -579,7 +512,7 @@
                                         <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
                                         <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} de 72 partidos.</p>
                                     </div>
-                                    <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] hover:bg-red-700 text-white shadow-[0_5px_15px_rgba(211,17,69,0.4)] hover:scale-105'}`}>
+                                    <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] text-white shadow-lg hover:scale-105'}`}>
                                         <Icon name={profile.locked ? "lock" : "unlock"} size={20} />
                                         {profile.locked ? 'QUINIELA BLOQUEADA' : 'GUARDAR Y BLOQUEAR'}
                                     </button>
@@ -592,11 +525,10 @@
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {partidos.filter(p => p.grupo === grupo).map(partido => {
+                                                {partidos.filter(p => p.grupo === group => p.grupo === grupo).map(partido => {
                                                     const miPick = profile.picks && profile.picks[partido.id];
                                                     return (
                                                         <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
-                                                            {profile.locked && <div className="absolute inset-0 bg-black/10 pointer-events-none z-10"></div>}
                                                             {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
                                                             
                                                             <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/20 pb-3">
@@ -609,17 +541,17 @@
 
                                                             <div className="flex flex-col w-full gap-3 mt-2">
                                                                 <div className="flex items-center justify-between w-full gap-2">
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
                                                                         <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
                                                                         <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span>
                                                                     </button>
                                                                     <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-[0_6px_15px_rgba(197,169,125,0.5)] scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90 hover:bg-black/50'}`}>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
                                                                         <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
                                                                         <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span>
                                                                     </button>
                                                                 </div>
-                                                                <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent shadow-[0_4px_10px_rgba(197,169,125,0.4)] scale-[1.01]' : 'bg-black/20 border-white/5 text-white/60 hover:bg-black/40'}`}>
+                                                                <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent' : 'bg-black/20 border-white/5 text-white/60'}`}>
                                                                     Empate
                                                                 </button>
                                                             </div>
@@ -634,25 +566,21 @@
                         )}
 
                         {activeTab === 'eliminatoria' && (
-                            <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8 relative">
-                                <Icon name="lock" size={64} className="text-[#C5A97D] mb-6 opacity-90 drop-shadow-lg" />
-                                <h3 className="text-3xl font-display font-black mb-4 text-white">FASE BLOQUEADA</h3>
-                                <p className="text-white/80 font-bold max-w-md mx-auto">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span>.</p>
+                            <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8">
+                                <Icon name="lock" size={64} className="text-[#C5A97D] mb-6" />
+                                <h3 className="text-3xl font-display font-black mb-4">FASE BLOQUEADA</h3>
+                                <p className="text-white/80 font-bold">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span>.</p>
                             </div>
                         )}
 
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in pb-10">
-                                <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-[0_0_40px_rgba(197,169,125,0.4)] overflow-hidden">
-                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent opacity-60"></div>
-                                    <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-1 drop-shadow-md">Gran Premio</h2>
-                                    <div className="font-display font-black text-5xl md:text-7xl text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] tracking-tighter mb-0 leading-none">
+                                <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-xl overflow-hidden">
+                                    <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-1">Gran Premio</h2>
+                                    <div className="font-display font-black text-5xl md:text-7xl text-white tracking-tighter mb-0 leading-none">
                                         {premioMxn}<span className="text-2xl md:text-3xl ml-1">MXN</span>
                                     </div>
-                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase tracking-widest opacity-90 drop-shadow-md mt-2">o {premioCrc} CRC</div>
-                                    <button onClick={(e) => { e.preventDefault(); if(window.prompt("Contraseña:") === "26zorras27") setShowAdminModal(true); }} className="absolute top-3 right-3 bg-black/50 text-[#C5A97D] border border-[#C5A97D]/30 px-3 py-2 rounded-xl text-[10px] font-black tracking-widest z-[60] shadow-xl hover:bg-black">
-                                        ⚙️ ADMIN
-                                    </button>
+                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase mt-2">o {premioCrc} CRC</div>
                                 </div>
                                 
                                 {!(profile && profile.locked) && (
@@ -662,25 +590,26 @@
                                 )}
                                 
                                 <div className="space-y-4">
-                                    {Object.values(predicciones).filter(j => j.locked).sort((a,b) => (b.puntos||0) - (a.puntos||0)).map((jugador, idx) => (
-                                        <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg ${idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D] shadow-[0_0_20px_rgba(197,169,125,0.3)]' : jugador.id === (profile && profile.id) ? 'bg-white text-black ring-4 ring-[#D31145]' : 'bg-[#033B25] border border-white/5 text-white'}`}>
+                                    {rankingEnVivo.map((jugador, idx) => (
+                                        <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] shadow-lg ${idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D]' : jugador.id === (profile && profile.id) ? 'bg-white text-black ring-4 ring-[#D31145]' : 'bg-[#033B25] border border-white/5 text-white'}`}>
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl drop-shadow-xl ${idx === 0 ? 'text-[#C5A97D] drop-shadow-[0_0_15px_rgba(197,169,125,0.8)]' : idx === 1 ? 'text-gray-300 drop-shadow-[0_0_15px_rgba(209,213,219,0.6)]' : idx === 2 ? 'text-[#CD7F32] drop-shadow-[0_0_15px_rgba(205,127,50,0.6)]' : 'text-white/20 text-4xl'}`}>
+                                                <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${idx === 0 ? 'text-[#C5A97D]' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-[#CD7F32]' : 'text-white/20 text-4xl'}`}>
                                                     {idx + 1}
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px] ${idx === 0 ? 'text-white drop-shadow-md' : ''}`}>{jugador.username}</span>
+                                                        <span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>
                                                         {jugador.id === (profile && profile.id) && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
                                                     </div>
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${jugador.id === (profile && profile.id) ? 'text-gray-500' : 'text-[#C5A97D]/80'}`}>
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70">
                                                         <Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="text-right pr-2">
-                                                <div className="font-display font-black text-4xl leading-none">{jugador.puntos || 0}</div>
-                                                <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${jugador.id === (profile && profile.id) ? 'text-[#D31145]' : 'text-[#C5A97D]'}`}>Puntos</div>
+                                                {/* CAMBIO VITAL: Ahora pinta los puntos recalculados instantáneamente */}
+                                                <div className="font-display font-black text-4xl leading-none">{jugador.puntosCalculados}</div>
+                                                <div className="text-[10px] font-black tracking-widest uppercase mt-1">Puntos</div>
                                             </div>
                                         </div>
                                     ))}
@@ -689,13 +618,14 @@
                         )}
                     </main>
 
+                    {/* MODAL ESPÍA */}
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in">
-                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-[0_0_40px_rgba(197,169,125,0.3)] overflow-hidden">
-                                <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5 shadow-lg">
+                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-2xl overflow-hidden">
+                                <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5">
                                     <div className="flex justify-between items-start mb-4">
-                                        <h2 className="font-display font-black text-2xl text-white uppercase tracking-wide drop-shadow-md leading-tight">Apuestas de <br className="block md:hidden"/><span className="text-[#C5A97D]">{spyUser.username}</span></h2>
-                                        <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3 hover:bg-black transition-colors"><Icon name="x" size={24} /></button>
+                                        <h2 className="font-display font-black text-2xl text-white uppercase">Apuestas de <span className="text-[#C5A97D]">{spyUser.username}</span></h2>
+                                        <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3"><Icon name="x" size={24} /></button>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 mb-4">
                                         <div className="bg-green-900/40 border border-green-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-green-400 leading-none">{spyStats.aciertos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-green-200 mt-1">Aciertos</span></div>
@@ -703,10 +633,10 @@
                                         <div className="bg-black/30 border border-[#C5A97D]/20 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-[#C5A97D] leading-none">{spyStats.pendientes}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-[#C5A97D]/70 mt-1">Pendientes</span></div>
                                     </div>
                                     <div className="flex flex-col gap-3">
-                                        <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm font-bold focus:outline-none focus:border-[#C5A97D]" /></div>
+                                        <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-[#C5A97D]" /></div>
                                         <div className="flex gap-2 w-full overflow-x-auto hide-scrollbar pb-1">
                                             {['all', 'aciertos', 'fallos'].map(f => (
-                                                <button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>
+                                                <button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>
                                             ))}
                                         </div>
                                     </div>
@@ -724,7 +654,7 @@
                                                 <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
                                                 <div className="w-1/2 flex justify-end">
                                                     <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
-                                                        {esCorrecto === true && <Icon name="check" size={14} />}{esCorrecto === false && <Icon name="x" size={14} />}{suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
+                                                        {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -735,6 +665,7 @@
                         </div>
                     )}
 
+                    {/* MODAL PANEL DE ADMINISTRACIÓN */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
@@ -755,14 +686,13 @@
                                                         </div>
                                                         <span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span>
                                                     </div>
-                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1">Cerrar y Puntear</button>
+                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1">Cerrar y Guardar</button>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl shadow-lg mb-3">Sincronizar API y Puntos</button>
-                                        <button onClick={calcularPuntosGlobal} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-3 rounded-xl shadow-lg">Forzar Recálculo</button>
+                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3">Sincronizar API Manual</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <div className="space-y-3 mb-4">
@@ -772,17 +702,6 @@
                                         <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase">Guardar Montos</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        {Object.values(predicciones).map(j => (
-                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
-                                                <span className="font-bold text-xs uppercase">{j.locked ? '🔒' : '🔓'} {j.username}</span>
-                                                <div className="flex gap-2">
-                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black">Desbloquear</button>}
-                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black">Eliminar</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
                                 </div>
                             </div>
                         </div>
