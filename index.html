@@ -354,6 +354,28 @@
                 await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' });
             };
 
+            // ==========================================
+            // GESTIÓN DE USUARIOS RESTAURADA
+            // ==========================================
+            const handleDeleteUser = async (userId, userName) => {
+                if (!db) return;
+                if(confirm(`¿Estás seguro de que deseas ELIMINAR al jugador "${userName}"?`)) {
+                    await db.collection('usuarios').doc(userId).delete();
+                    if (user && userId === user.uid) {
+                        safeStorage.remove('quiniela_user_uid');
+                        window.location.reload();
+                    }
+                }
+            };
+
+            const handleUnlockUser = async (userId, userName) => {
+                if (!db) return;
+                if(confirm(`¿Deseas desbloquear la quiniela de "${userName}" para que pueda editarla?`)) {
+                    await db.collection('usuarios').doc(userId).update({ locked: false });
+                    alert(`Quiniela de ${userName} desbloqueada exitosamente.`);
+                }
+            };
+
             const handleSyncAPI = async (silencioso = false) => {
                 if (!db) return;
                 if (!silencioso) setIsSyncing(true);
@@ -366,7 +388,6 @@
                     let actualizados = 0;
 
                     data.matches.forEach(match => {
-                        // SINTAXIS SEGURA (Eliminado el ?.)
                         if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name);
                             const apiAwayTranslated = traducirNombre(match.awayTeam.name);
@@ -519,7 +540,6 @@
                                         <div key={grupo} className="mb-12">
                                             <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {/* SINTAXIS SEGURA (Eliminado el error de tipeo "group =>") */}
                                                 {partidos.filter(p => p.grupo === grupo).map(partido => {
                                                     const miPick = profile.picks && profile.picks[partido.id];
                                                     return (
@@ -659,7 +679,7 @@
                         </div>
                     )}
 
-                    {/* MODAL PANEL DE ADMINISTRACIÓN */}
+                    {/* MODAL PANEL DE ADMINISTRACIÓN CON GESTIÓN DE USUARIOS RESTAURADA */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
@@ -695,7 +715,24 @@
                                         </div>
                                         <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase">Guardar Montos</button>
                                     </div>
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button>
+                                    </div>
+                                    
+                                    {/* BLOQUE DE GESTIÓN DE USUARIOS RESTAURADO */}
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>
+                                        {Object.values(predicciones).map(j => (
+                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
+                                                <span className="font-bold text-xs uppercase text-white">{j.locked ? '🔒' : '🔓'} {j.username}</span>
+                                                <div className="flex gap-2">
+                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}
+                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
