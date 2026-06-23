@@ -16,7 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Outfit:wght@700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;800;900&family=Outfit:wght=700;900&display=swap');
         
         body { background-color: #53121F; color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
         .font-display { font-family: 'Outfit', sans-serif; }
@@ -46,7 +46,6 @@
                 'alert-triangle': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
                 'eye': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
                 'x': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
-                'check': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
                 'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
                 'flame': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
             };
@@ -472,6 +471,49 @@
                 }
             };
 
+            // FUNCIÓN DE ORDENAMIENTO UNIFICADO (ANCLA LOS PARTIDOS DE HOY ARRIBA)
+            const ordenarPartidosEspecial = (listaPartidos) => {
+                const copia = [...listaPartidos];
+                copia.sort((a, b) => {
+                    const tA = parseFechaEs(a.fecha);
+                    const tB = parseFechaEs(b.fecha);
+                    
+                    const esHoyA = tA === hoyParseado;
+                    const esHoyB = tB === hoyParseado;
+                    
+                    if (esHoyA && !esHoyB) return -1;
+                    if (!esHoyA && esHoyB) return 1;
+                    
+                    if (tA !== tB) return tA - tB;
+                    return parseInt(a.hora) - parseInt(b.hora);
+                });
+                return copia;
+            };
+
+            React.useEffect(() => {
+                if (partidos.length === 0 || !user || !db) return;
+                const checarSincronizacionAutomatica = async () => {
+                    try {
+                        const doc = await db.collection('sistema').doc('configuracion').get();
+                        const ahora = new Date().getTime();
+                        if (!doc.exists) {
+                            await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: ahora }, { merge: true });
+                            handleSyncAPI(true); 
+                        } else {
+                            const ultimaSync = doc.data().ultima_sincronizacion || 0;
+                            if ((ahora - ultimaSync) / 3600000 >= 0.5) {
+                                await db.collection('sistema').doc('configuracion').update({ ultima_sincronizacion: ahora });
+                                handleSyncAPI(true);
+                            }
+                        }
+                    } catch (error) {}
+                };
+                checarSincronizacionAutomatica();
+                const intervalo = setInterval(checarSincronizacionAutomatica, 15 * 60 * 1000);
+                return () => clearInterval(intervalo);
+            }, [partidos.length, user]);
+
+            // PROCESAMIENTO MODO ESPÍA CON COLORES SIN AMBIGÜEDAD
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosHoy = [];
             let spyPartidosResto = [];
@@ -506,8 +548,8 @@
                 spyPartidosHoy = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) === hoyParseado);
                 spyPartidosResto = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) !== hoyParseado);
 
-                spyPartidosResto.sort((a, b) => parseFechaEs(a.fecha) - parseFechaEs(b.fecha));
-                spyPartidosHoy.sort((a,b) => parseInt(a.hora) - parseInt(b.hora));
+                spyPartidosResto.sort((a, b) => parseFechaEs(a.fecha) - parseFechaEs(b.fecha) || parseInt(a.hora) - parseInt(b.hora));
+                spyPartidosHoy.sort((a, b) => parseInt(a.hora) - parseInt(b.hora));
             }
 
             if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
@@ -538,6 +580,49 @@
                     puntosCalculados: calcularPuntosEnVivo(jugador)
                 }))
                 .sort((a, b) => b.puntosCalculados - a.puntosCalculados);
+
+            // FUNCIÓN CONSTRUCTORA DE FILAS CON VALIDACIÓN DE ROBUSTECIMIENTO VISUAL (MODO ESPÍA)
+            const construirFilaSpy = (partido, esAncladoHoy = false) => {
+                const suPick = spyUser.picks && spyUser.picks[partido.id];
+                let esCorrecto = null;
+                
+                if (partido.estado === 'finalizado') {
+                    let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
+                    let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
+                    esCorrecto = (resultadoReal === suPick);
+                }
+
+                // Estilos base neutros para que lo pendiente no simule error de color rojo
+                let estiloContenedor = "bg-[#022316] border-white/10 shadow-inner";
+                let estiloBadge = "bg-[#C5A97D] text-[#53121F]";
+
+                if (partido.estado === 'finalizado') {
+                    if (esCorrecto === true) {
+                        estiloContenedor = "bg-emerald-950/90 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
+                        estiloBadge = "bg-emerald-500 text-white";
+                    } else {
+                        estiloContenedor = "bg-rose-950/90 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]";
+                        estiloBadge = "bg-rose-500 text-white";
+                    }
+                }
+
+                return (
+                    <div key={(esAncladoHoy ? 'hoy-' : 'resto-') + partido.id} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${estiloContenedor}`}>
+                        <div className="flex items-center gap-2 w-1/2 md:gap-3">
+                            <span className="text-2xl drop-shadow">{getBandera(partido.local)}</span>
+                            <span className="text-[10px] text-white/40 font-black italic">VS</span>
+                            <span className="text-2xl drop-shadow">{getBandera(partido.visitante)}</span>
+                        </div>
+                        <div className="w-1/2 flex justify-end">
+                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow flex items-center gap-1 ${estiloBadge}`}>
+                                {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Sin pronóstico'}
+                            </span>
+                        </div>
+                    </div>
+                );
+            };
+
+            const partidosOrdenadosAdmin = ordenarPartidosEspecial(partidos);
 
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
@@ -692,7 +777,7 @@
                         )}
                     </main>
 
-                    {/* MODAL ESPÍA CON SECCIÓN "HOY" INTELIGENTE */}
+                    {/* MODAL ESPÍA REPARADO */}
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in touch-none">
                             <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-2xl overflow-hidden pointer-events-auto">
@@ -717,57 +802,23 @@
                                 </div>
                                 <div className="overflow-y-auto custom-scrollbar p-4 bg-[#033B25]/90 flex-1 touch-pan">
                                     
-                                    {/* MÓDULO JUEGAN HOY */}
+                                    {/* SECCIÓN JUEGAN HOY */}
                                     {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && (
                                         <div className="mb-6">
                                             <div className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg mb-3 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest shadow-lg">
                                                 <Icon name="flame" size={14} /> Juegan Hoy
                                             </div>
                                             <div className="space-y-3">
-                                                {spyPartidosHoy.map(partido => {
-                                                    const suPick = spyUser.picks && spyUser.picks[partido.id];
-                                                    let esCorrecto = null;
-                                                    if (partido.estado === 'finalizado') {
-                                                        let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
-                                                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
-                                                    }
-                                                    return (
-                                                        <div key={`hoy-${partido.id}`} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-[#53121F] border-[#C5A97D]/30 shadow-inner'}`}>
-                                                            <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
-                                                            <div className="w-1/2 flex justify-end">
-                                                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
-                                                                    {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                {spyPartidosHoy.map(partido => construirFilaSpy(partido, true))}
                                             </div>
                                             <div className="w-full h-px bg-white/10 my-6"></div>
                                         </div>
                                     )}
 
-                                    {/* RESTO DE PARTIDOS */}
+                                    {/* RESTO DEL TORNEO */}
                                     <div className="space-y-3">
                                         {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && <h3 className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resto del Torneo</h3>}
-                                        {spyPartidosResto.map(partido => {
-                                            const suPick = spyUser.picks && spyUser.picks[partido.id];
-                                            let esCorrecto = null;
-                                            if (partido.estado === 'finalizado') {
-                                                let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
-                                                esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
-                                            }
-                                            return (
-                                                <div key={partido.id} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-black/40 border-white/10'}`}>
-                                                    <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
-                                                    <div className="w-1/2 flex justify-end">
-                                                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
-                                                            {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                        {spyPartidosResto.map(partido => construirFilaSpy(partido, false))}
                                         {spyPartidosResto.length === 0 && spyPartidosHoy.length === 0 && (
                                             <p className="text-center text-white/40 text-xs font-bold mt-4">No se encontraron predicciones.</p>
                                         )}
@@ -777,7 +828,7 @@
                         </div>
                     )}
 
-                    {/* MODAL PANEL DE ADMINISTRACIÓN */}
+                    {/* MODAL PANEL DE ADMINISTRACIÓN CON ELEMENTOS ORDENADOS */}
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in touch-none">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative pointer-events-auto">
@@ -785,20 +836,24 @@
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4">Panel de Control</h2>
                                 <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar touch-pan">
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual de Resultados</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual de Resultados (Hoy arriba 📌)</p>
                                         <div className="max-h-48 overflow-y-auto custom-scrollbar pr-2 space-y-2 touch-pan">
-                                            {partidos.map(p => (
-                                                <div key={p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
+                                            {partidosOrdenadosAdmin.map(p => (
+                                                <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
+                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between">
+                                                        <span>{p.fecha} - {p.hora} Hrs</span>
+                                                        <span>{p.grupo}</span>
+                                                    </div>
                                                     <div className="flex items-center justify-between w-full">
                                                         <span className="text-xs font-bold w-1/3 truncate text-right pr-2">{p.local}</span>
                                                         <div className="flex items-center gap-1">
-                                                            <input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5" />
+                                                            <input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" />
                                                             <span className="text-xs text-white/50 font-bold">-</span>
-                                                            <input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5" />
+                                                            <input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" />
                                                         </div>
                                                         <span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span>
                                                     </div>
-                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1">Cerrar y Guardar</button>
+                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1 transition-colors active:bg-green-700">Cerrar y Guardar</button>
                                                 </div>
                                             ))}
                                         </div>
@@ -806,10 +861,10 @@
                                     
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Sincronización Avanzada</p>
-                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2">
+                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-transform">
                                             <Icon name="clock" size={16}/> Sincronizar Goles (API)
                                         </button>
-                                        <button onClick={handleCorregirCalendario} disabled={isSyncing} className="w-full bg-[#D31145] text-white font-black py-3 rounded-xl text-xs uppercase shadow-lg border border-red-500/50">
+                                        <button onClick={handleCorregirCalendario} disabled={isSyncing} className="w-full bg-[#D31145] text-white font-black py-3 rounded-xl text-xs uppercase shadow-lg border border-red-500/50 active:scale-95 transition-transform">
                                             ⚠️ Corregir Fechas Oficiales
                                         </button>
                                     </div>
