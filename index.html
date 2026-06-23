@@ -395,7 +395,6 @@
                 } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
             };
 
-            // ACTUALIZACIÓN DE LOGICA: EMPAREJAMIENTO DE EQUIPOS LOOSE / FLEXIBLE (BIDIRECCIONAL)
             const handleCorregirCalendario = async () => {
                 if (!db) return;
                 if(!confirm("¿Deseas sobreescribir las fechas de los partidos en tu base de datos para que coincidan con el calendario oficial de la FIFA (del 22 al 27 de junio)?")) return;
@@ -449,7 +448,6 @@
                         const pLoc = normalizeName(p.local);
                         const pVis = normalizeName(p.visitante);
                         
-                        // Búsqueda bidireccional inteligente (A vs B o B vs A)
                         const correcto = CALENDARIO_OFICIAL.find(c => 
                             (c.l === pLoc && c.v === pVis) || (c.l === pVis && c.v === pLoc)
                         );
@@ -469,12 +467,11 @@
                 } catch (e) {
                     console.error(e);
                     alert("Hubo un error corrigiendo las fechas.");
-                } finaly {
+                } finally {
                     setIsSyncing(false);
                 }
             };
 
-            // PREPARACIÓN DE DATOS MODAL ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
             let spyPartidosHoy = [];
             let spyPartidosResto = [];
@@ -499,7 +496,7 @@
                     let esCorrecto = null;
                     if (p.estado === 'finalizado') {
                         let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
+                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === pick);
                     }
                     if (spyFilter === 'aciertos' && esCorrecto !== true) return false;
                     if (spyFilter === 'fallos' && esCorrecto !== false) return false;
@@ -695,7 +692,7 @@
                         )}
                     </main>
 
-                    {/* MODAL ESPÍA */}
+                    {/* MODAL ESPÍA CON SECCIÓN "HOY" INTELIGENTE */}
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in touch-none">
                             <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-2xl overflow-hidden pointer-events-auto">
