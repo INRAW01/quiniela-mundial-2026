@@ -24,10 +24,13 @@
         .panini-card { background-color: #033B25; border: 1px solid rgba(197, 169, 125, 0.2); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* UTILIDADES ANTI-CONGELAMIENTO EN MÓVIL */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #C5A97D; border-radius: 10px; }
+        .touch-pan { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
     </style>
 
     <script>
@@ -48,9 +51,6 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        // ==========================================
-        // SISTEMA DE ICONOS SVG NATIVOS
-        // ==========================================
         const Icon = ({ name, size = 24, className = "" }) => {
             const icons = {
                 'lock': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
@@ -63,14 +63,12 @@
                 'eye': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
                 'x': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
                 'check': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
-                'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+                'flame': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
             };
             return icons[name] || <svg width={size} height={size}></svg>;
         };
 
-        // ==========================================
-        // CONEXIÓN FIREBASE
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDdCGvIAt4A5AyF_yOvR5SPJsgPtMWpCYY",
             authDomain: "quiniela-2026-59b53.firebaseapp.com",
@@ -90,7 +88,7 @@
                 auth = firebase.auth();
             }
         } catch (e) {
-            console.error("Error inicializando Firebase:", e);
+            console.error("Error Firebase:", e);
         }
 
         const safeStorage = {
@@ -120,19 +118,26 @@
             return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
+        const parseFechaEs = (fechaStr) => {
+            const meses = { 'ene': 'Jan', 'feb': 'Feb', 'mar': 'Mar', 'abr': 'Apr', 'may': 'May', 'jun': 'Jun', 'jul': 'Jul', 'ago': 'Aug', 'sep': 'Sep', 'oct': 'Oct', 'nov': 'Nov', 'dic': 'Dec' };
+            const partes = fechaStr.toLowerCase().split(' ');
+            if (partes.length === 3) {
+                const mesEn = meses[partes[1]] || partes[1];
+                return new Date(`${mesEn} ${partes[0]}, ${partes[2]}`).getTime();
+            }
+            return 0;
+        };
+
         const TRADUCTOR_API = {
-            "usa": "estados unidos", "united states": "estados unidos",
-            "south africa": "sudafrica", "south korea": "corea del sur", "korea republic": "corea del sur",
-            "czechia": "republica checa", "czech republic": "republica checa", "bosnia and herzegovina": "bosnia y herzegovina",
-            "qatar": "catar", "switzerland": "suiza", "brazil": "brasil",
-            "morocco": "marruecos", "scotland": "escocia", "turkiye": "turquia", "turkey": "turquia",
-            "germany": "alemania", "cote d'ivoire": "costa de marfil", "ivory coast": "costa de marfil",
-            "netherlands": "paises bajos", "japan": "japon", "tunisia": "tunez", "sweden": "suecia",
-            "belgium": "belgica", "egypt": "egipto", "ir iran": "iran", "iran": "iran",
-            "new zealand": "nueva zelanda", "spain": "espana", "cape verde": "cabo verde",
-            "saudi arabia": "arabia saudita", "france": "francia", "norway": "noruega",
-            "iraq": "irak", "algeria": "argelia", "jordan": "jordania", "uzbekistan": "uzbekistan",
-            "congo dr": "rd congo", "dr congo": "rd congo", "england": "inglaterra", "croatia": "croacia"
+            "usa": "estados unidos", "united states": "estados unidos", "south africa": "sudafrica", "south korea": "corea del sur", 
+            "korea republic": "corea del sur", "czechia": "republica checa", "czech republic": "republica checa", 
+            "bosnia and herzegovina": "bosnia y herzegovina", "qatar": "catar", "switzerland": "suiza", "brazil": "brasil",
+            "morocco": "marruecos", "scotland": "escocia", "turkiye": "turquia", "turkey": "turquia", "germany": "alemania", 
+            "cote d'ivoire": "costa de marfil", "ivory coast": "costa de marfil", "netherlands": "paises bajos", "japan": "japon", 
+            "tunisia": "tunez", "sweden": "suecia", "belgium": "belgica", "egypt": "egipto", "ir iran": "iran", "iran": "iran",
+            "new zealand": "nueva zelanda", "spain": "espana", "cape verde": "cabo verde", "saudi arabia": "arabia saudita", 
+            "france": "francia", "norway": "noruega", "iraq": "irak", "algeria": "argelia", "jordan": "jordania", 
+            "uzbekistan": "uzbekistan", "congo dr": "rd congo", "dr congo": "rd congo", "england": "inglaterra", "croatia": "croacia"
         };
 
         const traducirNombre = (nombreIngles) => {
@@ -141,27 +146,16 @@
         };
 
         class ErrorBoundary extends React.Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null };
-            }
-            static getDerivedStateFromError(error) {
-                return { hasError: true, error };
-            }
-            componentDidCatch(error, info) {
-                console.error("React Crash:", error, info);
-            }
+            constructor(props) { super(props); this.state = { hasError: false }; }
+            static getDerivedStateFromError(error) { return { hasError: true }; }
             render() {
-                if (this.state.hasError) {
-                    return (
-                        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#53121F]">
-                            <Icon name="alert-triangle" size={64} className="text-[#C5A97D] mb-4 mx-auto" />
-                            <h1 className="text-2xl font-black text-white mb-2">Error de Ejecución</h1>
-                            <p className="text-white/70 mb-6 max-w-md">La aplicación encontró un dato inesperado. Por favor reinicia.</p>
-                            <button onClick={() => window.location.reload()} className="bg-[#D31145] text-white px-6 py-3 rounded-xl font-black shadow-lg">REINICIAR</button>
-                        </div>
-                    );
-                }
+                if (this.state.hasError) return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#53121F]">
+                        <Icon name="alert-triangle" size={64} className="text-[#C5A97D] mb-4 mx-auto" />
+                        <h1 className="text-2xl font-black text-white mb-2">Error de Ejecución</h1>
+                        <button onClick={() => window.location.reload()} className="bg-[#D31145] text-white px-6 py-3 rounded-xl font-black shadow-lg">REINICIAR</button>
+                    </div>
+                );
                 return this.props.children;
             }
         }
@@ -189,12 +183,28 @@
             const [inputMxn, setInputMxn] = React.useState("$4,000");
             const [inputCrc, setInputCrc] = React.useState("100,000");
 
+            const [hoyStr, setHoyStr] = React.useState("");
+
             const partidosRef = React.useRef([]);
             React.useEffect(() => { partidosRef.current = partidos; }, [partidos]);
 
-            // ==========================================
-            // MOTOR DE CÁLCULO EN VIVO
-            // ==========================================
+            // GENERAR STRING DE HOY PARA MODAL ESPÍA
+            React.useEffect(() => {
+                const hoy = new Date();
+                const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                setHoyStr(`${hoy.getDate()} ${meses[hoy.getMonth()]} ${hoy.getFullYear()}`);
+            }, []);
+
+            // BLOQUEO DE SCROLL GLOBAL CUANDO HAY MODALES (ANTI-CONGELAMIENTO MÓVIL)
+            React.useEffect(() => {
+                if (spyUser || showAdminModal) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+                return () => { document.body.style.overflow = ''; };
+            }, [spyUser, showAdminModal]);
+
             const calcularPuntosEnVivo = (jugador) => {
                 if (!partidos || partidos.length === 0) return 0;
                 let aciertos = 0;
@@ -246,7 +256,7 @@
             React.useEffect(() => {
                 if (!user || !db) return;
                 
-                const unsubPartidos = db.collection('partidos').orderBy('orden').onSnapshot(
+                const unsubPartidos = db.collection('partidos').onSnapshot(
                     snap => {
                         const pts = [];
                         snap.forEach(d => pts.push({ id: d.id, ...d.data() }));
@@ -284,9 +294,7 @@
                 return () => unsubConfig();
             }, []);
 
-            React.useEffect(() => {
-                setInputMxn(premioMxn); setInputCrc(premioCrc);
-            }, [premioMxn, premioCrc]);
+            React.useEffect(() => { setInputMxn(premioMxn); setInputCrc(premioCrc); }, [premioMxn, premioCrc]);
 
             const handleLogin = async (e) => {
                 e.preventDefault();
@@ -325,7 +333,7 @@
             const handleBloquearQuiniela = async () => {
                 if (!db || !profile) return;
                 const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de 72 partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela?`)) {
+                if(confirm(`Has pronosticado ${totalPicks} de partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela?`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
                     setProfile({...profile, locked: true});
                     alert("¡Quiniela Bloqueada Exitosamente!");
@@ -354,12 +362,9 @@
                 await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' });
             };
 
-            // ==========================================
-            // GESTIÓN DE USUARIOS RESTAURADA
-            // ==========================================
             const handleDeleteUser = async (userId, userName) => {
                 if (!db) return;
-                if(confirm(`¿Estás seguro de que deseas ELIMINAR al jugador "${userName}"?`)) {
+                if(confirm(`¿ELIMINAR al jugador "${userName}"?`)) {
                     await db.collection('usuarios').doc(userId).delete();
                     if (user && userId === user.uid) {
                         safeStorage.remove('quiniela_user_uid');
@@ -370,9 +375,8 @@
 
             const handleUnlockUser = async (userId, userName) => {
                 if (!db) return;
-                if(confirm(`¿Deseas desbloquear la quiniela de "${userName}" para que pueda editarla?`)) {
+                if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) {
                     await db.collection('usuarios').doc(userId).update({ locked: false });
-                    alert(`Quiniela de ${userName} desbloqueada exitosamente.`);
                 }
             };
 
@@ -428,8 +432,10 @@
                 return () => clearInterval(intervalo);
             }, [partidos.length, user]);
 
+            // PREPARACIÓN DE DATOS MODAL ESPÍA
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
-            let spyPartidosFiltrados = [];
+            let spyPartidosHoy = [];
+            let spyPartidosResto = [];
 
             if (spyUser) {
                 spyStats.aciertos = calcularPuntosEnVivo(spyUser);
@@ -443,7 +449,7 @@
                     }
                 });
 
-                spyPartidosFiltrados = partidos.filter(p => {
+                const spyPartidosFiltrados = partidos.filter(p => {
                     const pick = spyUser.picks && spyUser.picks[p.id];
                     if (!pick) return false;
                     const buscar = spySearchTerm.toLowerCase();
@@ -457,6 +463,14 @@
                     if (spyFilter === 'fallos' && esCorrecto !== false) return false;
                     return true;
                 });
+
+                // Separar partidos de hoy del resto para anclarlos arriba
+                spyPartidosHoy = spyPartidosFiltrados.filter(p => p.fecha.toLowerCase() === hoyStr.toLowerCase());
+                spyPartidosResto = spyPartidosFiltrados.filter(p => p.fecha.toLowerCase() !== hoyStr.toLowerCase());
+
+                // Ordenar resto cronológicamente
+                spyPartidosResto.sort((a, b) => parseFechaEs(a.fecha) - parseFechaEs(b.fecha));
+                spyPartidosHoy.sort((a,b) => parseInt(a.hora) - parseInt(b.hora));
             }
 
             if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
@@ -478,9 +492,9 @@
                 );
             }
 
-            const gruposNombres = [];
-            partidos.forEach(p => { if (gruposNombres.indexOf(p.grupo) === -1) gruposNombres.push(p.grupo); });
-            gruposNombres.sort();
+            // ORGANIZACIÓN CRONOLÓGICA DE PARTIDOS PARA VISTA PRINCIPAL
+            const fechasUnicas = [...new Set(partidos.map(p => p.fecha))];
+            fechasUnicas.sort((a, b) => parseFechaEs(a) - parseFechaEs(b));
 
             const rankingEnVivo = Object.values(predicciones)
                 .filter(j => j.locked)
@@ -511,21 +525,21 @@
                             </div>
                         </div>
                         <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2">
-                            {['Grupos', 'Eliminatoria', 'Ranking'].map(tab => (
+                            {['Partidos', 'Eliminatoria', 'Ranking'].map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab.toLowerCase())} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === tab.toLowerCase() ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>
-                                    {tab === 'Grupos' ? 'Fase de Grupos' : tab === 'Eliminatoria' ? 'Fase Eliminatoria' : tab}
+                                    {tab === 'Partidos' ? 'Fase de Grupos' : tab === 'Eliminatoria' ? 'Fase Eliminatoria' : tab}
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     <main className="max-w-6xl mx-auto p-4 pt-6 space-y-4 w-full">
-                        {activeTab === 'grupos' && (
+                        {activeTab === 'partidos' && (
                             <div className="animate-fade-in">
                                 <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
                                     <div className="mb-4 md:mb-0 text-center md:text-left">
                                         <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
-                                        <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} de 72 partidos.</p>
+                                        <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} partidos.</p>
                                     </div>
                                     <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] text-white shadow-lg hover:scale-105'}`}>
                                         <Icon name={profile.locked ? "lock" : "unlock"} size={20} />
@@ -536,46 +550,57 @@
                                 {partidos.length === 0 ? (
                                     <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">El torneo está vacío.</p></div>
                                 ) : (
-                                    gruposNombres.map(grupo => (
-                                        <div key={grupo} className="mb-12">
-                                            <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {partidos.filter(p => p.grupo === grupo).map(partido => {
-                                                    const miPick = profile.picks && profile.picks[partido.id];
-                                                    return (
-                                                        <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
-                                                            {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
-                                                            
-                                                            <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/20 pb-3">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
-                                                                    <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora} Hrs</div>
+                                    // BUCLE ORDENADO POR FECHA ESTRICTA
+                                    fechasUnicas.map(fecha => {
+                                        const partidosDeFecha = partidos.filter(p => p.fecha === fecha);
+                                        // Sub-ordenar por hora dentro del mismo día
+                                        partidosDeFecha.sort((a,b) => parseInt(a.hora) - parseInt(b.hora));
+                                        
+                                        return (
+                                            <div key={fecha} className="mb-12">
+                                                <h2 className="text-2xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md flex items-center gap-3">
+                                                    <Icon name="calendar" size={26} className="text-[#C5A97D]"/>
+                                                    <span className="uppercase tracking-wide">{fecha}</span>
+                                                    {fecha.toLowerCase() === hoyStr.toLowerCase() && <span className="ml-2 bg-[#D31145] text-white text-[10px] px-2 py-1 rounded-md font-black tracking-widest">HOY</span>}
+                                                </h2>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {partidosDeFecha.map(partido => {
+                                                        const miPick = profile.picks && profile.picks[partido.id];
+                                                        return (
+                                                            <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
+                                                                {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
+                                                                
+                                                                <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/20 pb-3">
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora} Hrs</div>
+                                                                        <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase opacity-70"><span className="w-3"></span> {partido.grupo}</div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase text-right max-w-[50%]"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                                 </div>
-                                                                <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase text-right max-w-[50%]"><Icon name="map-pin" size={12}/> {partido.sede}</div>
-                                                            </div>
 
-                                                            <div className="flex flex-col w-full gap-3 mt-2">
-                                                                <div className="flex items-center justify-between w-full gap-2">
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
-                                                                        <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
-                                                                        <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span>
-                                                                    </button>
-                                                                    <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
-                                                                        <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                                                                        <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span>
+                                                                <div className="flex flex-col w-full gap-3 mt-2">
+                                                                    <div className="flex items-center justify-between w-full gap-2">
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
+                                                                            <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
+                                                                            <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span>
+                                                                        </button>
+                                                                        <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
+                                                                            <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
+                                                                            <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span>
+                                                                        </button>
+                                                                    </div>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent' : 'bg-black/20 border-white/5 text-white/60'}`}>
+                                                                        Empate
                                                                     </button>
                                                                 </div>
-                                                                <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent' : 'bg-black/20 border-white/5 text-white/60'}`}>
-                                                                    Empate
-                                                                </button>
                                                             </div>
-                                                        </div>
-                                                    )
-                                                })}
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 )}
                             </div>
                         )}
@@ -632,11 +657,11 @@
                         )}
                     </main>
 
-                    {/* MODAL ESPÍA */}
+                    {/* MODAL ESPÍA CON SECCIÓN "HOY" Y ANTI-CONGELAMIENTO (touch-pan) */}
                     {spyUser && (
-                        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in">
-                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-2xl overflow-hidden">
-                                <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5">
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[90] flex items-center justify-center p-2 md:p-4 animate-fade-in touch-none">
+                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl max-h-[95vh] flex flex-col relative shadow-2xl overflow-hidden pointer-events-auto">
+                                <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5 shrink-0">
                                     <div className="flex justify-between items-start mb-4">
                                         <h2 className="font-display font-black text-2xl text-white uppercase">Apuestas de <span className="text-[#C5A97D]">{spyUser.username}</span></h2>
                                         <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3"><Icon name="x" size={24} /></button>
@@ -647,7 +672,7 @@
                                         <div className="bg-black/30 border border-[#C5A97D]/20 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-[#C5A97D] leading-none">{spyStats.pendientes}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-[#C5A97D]/70 mt-1">Pendientes</span></div>
                                     </div>
                                     <div className="flex flex-col gap-3">
-                                        <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-[#C5A97D]" /></div>
+                                        <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar país..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-[#C5A97D]" /></div>
                                         <div className="flex gap-2 w-full overflow-x-auto hide-scrollbar pb-1">
                                             {['all', 'aciertos', 'fallos'].map(f => (
                                                 <button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>
@@ -655,40 +680,78 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div className="overflow-y-auto custom-scrollbar p-4 space-y-3 bg-[#033B25]/90 flex-1">
-                                    {spyPartidosFiltrados.map(partido => {
-                                        const suPick = spyUser.picks && spyUser.picks[partido.id];
-                                        let esCorrecto = null;
-                                        if (partido.estado === 'finalizado') {
-                                            let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
-                                            esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
-                                        }
-                                        return (
-                                            <div key={partido.id} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-black/40 border-white/10'}`}>
-                                                <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
-                                                <div className="w-1/2 flex justify-end">
-                                                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
-                                                        {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
-                                                    </span>
-                                                </div>
+                                <div className="overflow-y-auto custom-scrollbar p-4 bg-[#033B25]/90 flex-1 touch-pan">
+                                    
+                                    {/* MÓDULO DE PARTIDOS DE HOY ANCLADO ARRIBA */}
+                                    {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && (
+                                        <div className="mb-6">
+                                            <div className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg mb-3 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest shadow-lg">
+                                                <Icon name="flame" size={14} /> Juegan Hoy
                                             </div>
-                                        );
-                                    })}
+                                            <div className="space-y-3">
+                                                {spyPartidosHoy.map(partido => {
+                                                    const suPick = spyUser.picks && spyUser.picks[partido.id];
+                                                    let esCorrecto = null;
+                                                    if (partido.estado === 'finalizado') {
+                                                        let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
+                                                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
+                                                    }
+                                                    return (
+                                                        <div key={`hoy-${partido.id}`} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-[#53121F] border-[#C5A97D]/30 shadow-inner'}`}>
+                                                            <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
+                                                            <div className="w-1/2 flex justify-end">
+                                                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
+                                                                    {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="w-full h-px bg-white/10 my-6"></div>
+                                        </div>
+                                    )}
+
+                                    {/* RESTO DE PARTIDOS */}
+                                    <div className="space-y-3">
+                                        {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && <h3 className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resto del Torneo</h3>}
+                                        {spyPartidosResto.map(partido => {
+                                            const suPick = spyUser.picks && spyUser.picks[partido.id];
+                                            let esCorrecto = null;
+                                            if (partido.estado === 'finalizado') {
+                                                let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
+                                                esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === suPick);
+                                            }
+                                            return (
+                                                <div key={partido.id} className={`flex items-center justify-between p-3 rounded-2xl border ${esCorrecto === true ? 'bg-green-900/40 border-green-500' : esCorrecto === false ? 'bg-red-900/40 border-red-500' : 'bg-black/40 border-white/10'}`}>
+                                                    <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl">{getBandera(partido.visitante)}</span></div>
+                                                    <div className="w-1/2 flex justify-end">
+                                                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${esCorrecto === true ? 'bg-green-500 text-white' : esCorrecto === false ? 'bg-red-500 text-white' : 'bg-[#C5A97D] text-[#53121F]'}`}>
+                                                            {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : 'Empate'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {spyPartidosResto.length === 0 && spyPartidosHoy.length === 0 && (
+                                            <p className="text-center text-white/40 text-xs font-bold mt-4">No se encontraron predicciones.</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* MODAL PANEL DE ADMINISTRACIÓN CON GESTIÓN DE USUARIOS RESTAURADA */}
+                    {/* MODAL PANEL DE ADMINISTRACIÓN (touch-pan) */}
                     {showAdminModal && (
-                        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
-                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative">
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in touch-none">
+                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative pointer-events-auto">
                                 <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2"><Icon name="x" size={24} /></button>
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4">Panel de Control</h2>
-                                <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar touch-pan">
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual de Resultados</p>
-                                        <div className="max-h-48 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                                        <div className="max-h-48 overflow-y-auto custom-scrollbar pr-2 space-y-2 touch-pan">
                                             {partidos.map(p => (
                                                 <div key={p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
                                                     <div className="flex items-center justify-between w-full">
@@ -718,8 +781,6 @@
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button>
                                     </div>
-                                    
-                                    {/* BLOQUE DE GESTIÓN DE USUARIOS RESTAURADO */}
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>
                                         {Object.values(predicciones).map(j => (
@@ -732,7 +793,6 @@
                                             </div>
                                         ))}
                                     </div>
-
                                 </div>
                             </div>
                         </div>
