@@ -22,6 +22,7 @@
         .font-display { font-family: 'Outfit', sans-serif; }
         .panini-gradient { background: linear-gradient(135deg, #00623B 0%, #033B25 100%); }
         .panini-card { background-color: #033B25; border: 1px solid rgba(197, 169, 125, 0.2); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        .casino-glow { box-shadow: 0 0 20px rgba(197, 169, 125, 0.4), inset 0 0 10px rgba(197, 169, 125, 0.2); }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
@@ -45,10 +46,12 @@
                 'alert-circle': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
                 'alert-triangle': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
                 'eye': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>,
+                'eye-off': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>,
                 'x': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
                 'check': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
                 'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
-                'flame': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                'flame': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>,
+                'target': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
             };
             return icons[name] || <svg width={size} height={size}></svg>;
         };
@@ -102,21 +105,26 @@
             return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
-        const parseFechaEs = (fechaStr) => {
-            if (!fechaStr) return 0;
+        // PARSER PRECISO DE FECHA Y HORA (Para bloqueos de 1 minuto)
+        const getMatchTimestamp = (fechaStr, horaStr) => {
+            if (!fechaStr || !horaStr) return Infinity;
             let str = String(fechaStr).toLowerCase().replace(/ de /g, ' ').replace(/,/g, '');
             const partes = str.split(' ').filter(p => p);
             if (partes.length >= 3) {
                 let dia = parseInt(partes[0]);
                 let mesStr = partes[1].substring(0,3);
                 const mesesMap = { 'ene':0, 'feb':1, 'mar':2, 'abr':3, 'may':4, 'jun':5, 'jul':6, 'ago':7, 'sep':8, 'oct':9, 'nov':10, 'dic':11 };
-                let mes = mesesMap[mesStr];
-                if(mes === undefined) mes = 5; 
-                let ano = parseInt(partes[2]);
-                if(ano < 2000) ano = 2026;
-                return new Date(ano, mes, dia, 12, 0, 0).getTime();
+                let mes = mesesMap[mesStr] !== undefined ? mesesMap[mesStr] : 5; 
+                let ano = parseInt(partes[2]); if(ano < 2000) ano = 2026;
+                const [h, m] = horaStr.split(':').map(Number);
+                return new Date(ano, mes, dia, h || 12, m || 0, 0).getTime();
             }
-            return 0;
+            return Infinity;
+        };
+
+        const parseFechaEs = (fechaStr) => {
+            const ts = getMatchTimestamp(fechaStr, "12:00");
+            return ts !== Infinity ? ts : 0;
         };
 
         const TRADUCTOR_API = {
@@ -173,6 +181,13 @@
             const [spyFilter, setSpyFilter] = React.useState("all");
             const [modoEspiaActivo, setModoEspiaActivo] = React.useState(false);
 
+            // RELOJ GLOBAL EN VIVO (Actualiza cada segundo)
+            const [currentTime, setCurrentTime] = React.useState(Date.now());
+            React.useEffect(() => {
+                const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
+                return () => clearInterval(interval);
+            }, []);
+
             const partidosRef = React.useRef([]);
             React.useEffect(() => { partidosRef.current = partidos; }, [partidos]);
 
@@ -182,25 +197,39 @@
             }, []);
 
             React.useEffect(() => {
-                if (spyUser || showAdminModal) {
-                    document.body.style.overflow = 'hidden';
-                } else {
-                    document.body.style.overflow = '';
-                }
+                if (spyUser || showAdminModal) document.body.style.overflow = 'hidden';
+                else document.body.style.overflow = '';
                 return () => { document.body.style.overflow = ''; };
             }, [spyUser, showAdminModal]);
 
-            const calcularPuntosEnVivo = (jugador) => {
+            // CÁLCULO PUNTOS FASE 1
+            const calcularPuntosFase1 = (jugador) => {
                 if (!partidos || partidos.length === 0) return 0;
                 let aciertos = 0;
                 const picks = jugador.picks || {};
-                
-                partidos.forEach(p => {
+                partidos.filter(p => String(p.grupo).toLowerCase().includes('grupo')).forEach(p => {
                     if (p.estado === 'finalizado') {
                         const suPick = picks[p.id];
                         if (suPick) {
-                            let gl = Number(p.golesL_real);
-                            let gv = Number(p.golesV_real);
+                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
+                            let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
+                            if (resultadoReal === suPick) aciertos++;
+                        }
+                    }
+                });
+                return aciertos;
+            };
+
+            // CÁLCULO PUNTOS FASE 2 (Empezando desde cero)
+            const calcularPuntosFase2 = (jugador) => {
+                if (!partidos || partidos.length === 0) return 0;
+                let aciertos = 0;
+                const picks = jugador.picks || {};
+                partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).forEach(p => {
+                    if (p.estado === 'finalizado') {
+                        const suPick = picks[p.id];
+                        if (suPick) {
+                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
                             let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
                             if (resultadoReal === suPick) aciertos++;
                         }
@@ -211,112 +240,78 @@
 
             React.useEffect(() => {
                 if (!auth || !db) { setIsLoading(false); return; }
-
                 const checarYRecuperarSesion = async (u) => {
                     try {
                         const savedUid = safeStorage.get('quiniela_user_uid');
-                        if (savedUid && !u) {
-                            await auth.signInAnonymously();
-                            return; 
-                        }
+                        if (savedUid && !u) { await auth.signInAnonymously(); return; }
                         const uidActivo = savedUid || (u ? u.uid : null);
                         if (uidActivo) {
                             const doc = await db.collection('usuarios').doc(uidActivo).get();
-                            if (doc.exists) { 
-                                setProfile({ id: uidActivo, ...doc.data() }); 
-                                setUser({ uid: uidActivo }); 
-                            } else {
-                                safeStorage.remove('quiniela_user_uid');
-                                setUser(null);
-                                setProfile(null);
-                            }
+                            if (doc.exists) { setProfile({ id: uidActivo, ...doc.data() }); setUser({ uid: uidActivo }); } 
+                            else { safeStorage.remove('quiniela_user_uid'); setUser(null); setProfile(null); }
                         }
                     } catch(e) { console.error(e); } finally { setIsLoading(false); }
                 };
-
                 const unsubAuth = auth.onAuthStateChanged((u) => checarYRecuperarSesion(u));
                 return () => unsubAuth();
             }, []);
 
             React.useEffect(() => {
                 if (!user || !db) return;
-                
-                const unsubPartidos = db.collection('partidos').onSnapshot(
-                    snap => {
-                        const pts = [];
-                        snap.forEach(d => pts.push({ id: d.id, ...d.data() }));
-                        setPartidos(pts);
-                    },
-                    err => console.error(err)
-                );
-
-                const unsubPreds = db.collection('usuarios').onSnapshot(
-                    snap => {
-                        const data = {};
-                        snap.forEach(d => data[d.id] = { id: d.id, ...d.data() });
-                        setPredicciones(data);
-                        if (data[user.uid]) setProfile(data[user.uid]);
-                    },
-                    err => console.error(err)
-                );
-
+                const unsubPartidos = db.collection('partidos').onSnapshot(snap => {
+                    const pts = []; snap.forEach(d => pts.push({ id: d.id, ...d.data() })); setPartidos(pts);
+                });
+                const unsubPreds = db.collection('usuarios').onSnapshot(snap => {
+                    const data = {}; snap.forEach(d => data[d.id] = { id: d.id, ...d.data() }); setPredicciones(data);
+                    if (data[user.uid]) setProfile(data[user.uid]);
+                });
                 return () => { unsubPartidos(); unsubPreds(); };
             }, [user]);
 
             React.useEffect(() => {
                 if (!db) return;
-                const unsubConfig = db.collection('sistema').doc('configuracion').onSnapshot(
-                    doc => {
-                        if (doc.exists) {
-                            const data = doc.data();
-                            setModoEspiaActivo(data.modo_espia_activo || false);
-                            
-                            const configPremios = {
-                                mxnFase1: data.premios?.mxnFase1 || data.premio_mxn || "$4,000",
-                                crcFase1: data.premios?.crcFase1 || data.premio_crc || "100,000",
-                                mxnFase2: data.premios?.mxnFase2 || "$10,000",
-                                crcFase2: data.premios?.crcFase2 || "250,000"
-                            };
-                            setPremios(configPremios);
-                            setInputPremios(configPremios);
-                            
-                            if (data.visibilidad) setVisibilidad(data.visibilidad);
-                        }
-                    },
-                    err => console.error(err)
-                );
+                const unsubConfig = db.collection('sistema').doc('configuracion').onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        setModoEspiaActivo(data.modo_espia_activo || false);
+                        const configPremios = {
+                            mxnFase1: data.premios?.mxnFase1 || data.premio_mxn || "$4,000",
+                            crcFase1: data.premios?.crcFase1 || data.premio_crc || "100,000",
+                            mxnFase2: data.premios?.mxnFase2 || "$10,000",
+                            crcFase2: data.premios?.crcFase2 || "250,000"
+                        };
+                        setPremios(configPremios); setInputPremios(configPremios);
+                        if (data.visibilidad) setVisibilidad(data.visibilidad);
+                    }
+                });
                 return () => unsubConfig();
             }, []);
 
             const handleLogin = async (e) => {
-                e.preventDefault();
-                if (!db || !auth) return;
-                const inputName = username.trim();
-                if (!inputName) return;
+                e.preventDefault(); if (!db || !auth) return;
+                const inputName = username.trim(); if (!inputName) return;
                 setIsLoading(true);
-                
                 try {
                     if (!auth.currentUser) await auth.signInAnonymously();
                     const allUsersSnap = await db.collection('usuarios').get();
                     const existingUser = allUsersSnap.docs.find(doc => doc.data().username.toLowerCase() === inputName.toLowerCase());
                     let currentUserUid = existingUser ? existingUser.id : auth.currentUser.uid;
-
-                    if (!existingUser) {
-                        await db.collection('usuarios').doc(currentUserUid).set({
-                            username: inputName, picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    }
-                    setUser({ uid: currentUserUid });
-                    safeStorage.set('quiniela_user_uid', currentUserUid);
-                    const doc = await db.collection('usuarios').doc(currentUserUid).get();
-                    setProfile({ id: currentUserUid, ...doc.data() });
-                    setIsLoginExiting(true); 
-                    setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
+                    if (!existingUser) { await db.collection('usuarios').doc(currentUserUid).set({ username: inputName, picks: {}, puntos: 0, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+                    setUser({ uid: currentUserUid }); safeStorage.set('quiniela_user_uid', currentUserUid);
+                    const doc = await db.collection('usuarios').doc(currentUserUid).get(); setProfile({ id: currentUserUid, ...doc.data() });
+                    setIsLoginExiting(true); setTimeout(() => { setIsLoginExiting(false); setIsLoading(false); }, 500);
                 } catch (error) { setIsLoading(false); }
             };
             
             const guardarTendencia = async (partidoId, tendencia) => {
-                if (!profile || profile.locked || !db) return;
+                if (!profile || !db) return;
+                const partido = partidos.find(p => p.id === partidoId);
+                const isFaseGrupos = String(partido.grupo).toLowerCase().includes('grupo');
+                if (isFaseGrupos && profile.locked) return; // Bloqueo global solo aplica a Fase 1
+                
+                const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
+                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return; // Bloqueo de 1 minuto
+
                 const picksActuales = profile.picks || {};
                 const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
                 await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
@@ -324,282 +319,114 @@
 
             const handleBloquearQuiniela = async () => {
                 if (!db || !profile) return;
-                const totalPicks = Object.keys(profile.picks || {}).length;
-                if(confirm(`Has pronosticado ${totalPicks} de partidos.\n\n¿Estás seguro de GUARDAR Y BLOQUEAR tu quiniela?`)) {
+                if(confirm(`¿Estás seguro de GUARDAR Y BLOQUEAR tu Fase de Grupos?`)) {
                     await db.collection('usuarios').doc(user.uid).update({ locked: true });
-                    setProfile({...profile, locked: true});
-                    alert("¡Quiniela Bloqueada Exitosamente!");
+                    setProfile({...profile, locked: true}); alert("¡Fase de Grupos Bloqueada!");
                 }
             };
 
             const handleCloseSpy = () => { setSpyUser(null); setSpySearchTerm(""); setSpyFilter("all"); };
-
-            const toggleModoEspia = async () => {
-                if (!db) return;
-                const configRef = db.collection('sistema').doc('configuracion');
-                await configRef.set({ modo_espia_activo: !modoEspiaActivo }, { merge: true });
-            };
-
-            const handleToggleVisibilidad = async (tabId, isChecked) => {
-                if (!db) return;
-                const nuevaVisibilidad = { ...visibilidad, [tabId]: isChecked };
-                setVisibilidad(nuevaVisibilidad);
-                await db.collection('sistema').doc('configuracion').set({ visibilidad: nuevaVisibilidad }, { merge: true });
-            };
-
-            const handleActualizarPremios = async () => {
-                if (!db) return;
-                await db.collection('sistema').doc('configuracion').set({ premios: inputPremios }, { merge: true });
-                alert("Premios actualizados en los rankings.");
-            };
-
-            const handleGuardarResultadoManual = async (partidoId) => {
-                if (!db) return;
-                const inputL = document.getElementById(`golesL_${partidoId}`).value;
-                const inputV = document.getElementById(`golesV_${partidoId}`).value;
-                if(inputL === '' || inputV === '') return;
-                await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' });
-            };
-
-            const handleDeleteUser = async (userId, userName) => {
-                if (!db) return;
-                if(confirm(`¿ELIMINAR al jugador "${userName}"?`)) {
-                    await db.collection('usuarios').doc(userId).delete();
-                    if (user && userId === user.uid) {
-                        safeStorage.remove('quiniela_user_uid');
-                        window.location.reload();
-                    }
-                }
-            };
-
-            const handleUnlockUser = async (userId, userName) => {
-                if (!db) return;
-                if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) {
-                    await db.collection('usuarios').doc(userId).update({ locked: false });
-                }
-            };
+            const toggleModoEspia = async () => { if (!db) return; await db.collection('sistema').doc('configuracion').set({ modo_espia_activo: !modoEspiaActivo }, { merge: true }); };
+            const handleToggleVisibilidad = async (tabId, isChecked) => { if (!db) return; const nuevaVisibilidad = { ...visibilidad, [tabId]: isChecked }; setVisibilidad(nuevaVisibilidad); await db.collection('sistema').doc('configuracion').set({ visibilidad: nuevaVisibilidad }, { merge: true }); };
+            const handleActualizarPremios = async () => { if (!db) return; await db.collection('sistema').doc('configuracion').set({ premios: inputPremios }, { merge: true }); alert("Premios actualizados en los rankings."); };
+            const handleGuardarResultadoManual = async (partidoId) => { if (!db) return; const inputL = document.getElementById(`golesL_${partidoId}`).value; const inputV = document.getElementById(`golesV_${partidoId}`).value; if(inputL === '' || inputV === '') return; await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' }); };
+            const handleDeleteUser = async (userId, userName) => { if (!db) return; if(confirm(`¿ELIMINAR al jugador "${userName}"?`)) { await db.collection('usuarios').doc(userId).delete(); if (user && userId === user.uid) { safeStorage.remove('quiniela_user_uid'); window.location.reload(); } } };
+            const handleUnlockUser = async (userId, userName) => { if (!db) return; if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) { await db.collection('usuarios').doc(userId).update({ locked: false }); } };
 
             const handleSyncAPI = async (silencioso = false) => {
-                if (!db) return;
-                if (!silencioso) setIsSyncing(true);
+                if (!db) return; if (!silencioso) setIsSyncing(true);
                 try {
-                    const res = await fetch("/api/sync-matches");
-                    const data = await res.json();
-                    if (!data.matches) return;
-
-                    const batch = db.batch();
-                    let actualizados = 0;
+                    const res = await fetch("/api/sync-matches"); const data = await res.json(); if (!data.matches) return;
+                    const batch = db.batch(); let actualizados = 0; let insertadosFase2 = 0;
+                    const stagesEliminatoria = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"];
 
                     data.matches.forEach(match => {
+                        // Sincronizar goles finalizados
                         if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
-                            const apiHomeTranslated = traducirNombre(match.homeTeam.name);
-                            const apiAwayTranslated = traducirNombre(match.awayTeam.name);
-                            const apiGolesL = Number(match.score.fullTime.home);
-                            const apiGolesV = Number(match.score.fullTime.away);
-                            
+                            const apiHomeTranslated = traducirNombre(match.homeTeam.name); const apiAwayTranslated = traducirNombre(match.awayTeam.name);
+                            const apiGolesL = Number(match.score.fullTime.home); const apiGolesV = Number(match.score.fullTime.away);
                             const matchDirecto = partidosRef.current.find(p => {
-                                const dbLoc = normalizeName(p.local);
-                                const dbVis = normalizeName(p.visitante);
-                                return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || 
-                                       (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
+                                const dbLoc = normalizeName(p.local); const dbVis = normalizeName(p.visitante);
+                                return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
                             });
-
                             if (matchDirecto) {
-                                let finalGolesL = apiGolesL;
-                                let finalGolesV = apiGolesV;
-                                
-                                if (normalizeName(matchDirecto.local) === apiAwayTranslated) {
-                                    finalGolesL = apiGolesV;
-                                    finalGolesV = apiGolesL;
-                                }
-
+                                let finalGolesL = apiGolesL; let finalGolesV = apiGolesV;
+                                if (normalizeName(matchDirecto.local) === apiAwayTranslated) { finalGolesL = apiGolesV; finalGolesV = apiGolesL; }
                                 if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== finalGolesL || matchDirecto.golesV_real !== finalGolesV) {
-                                    batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: finalGolesL, golesV_real: finalGolesV, estado: 'finalizado' });
-                                    actualizados++;
+                                    batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: finalGolesL, golesV_real: finalGolesV, estado: 'finalizado' }); actualizados++;
                                 }
                             } 
                         }
-                    });
-                    if (actualizados > 0) {
-                        await batch.commit();
-                        if(!silencioso) alert(`¡Se actualizaron ${actualizados} partidos correctamente!`);
-                    } else {
-                        if(!silencioso) alert("La API no detectó partidos nuevos finalizados.");
-                    }
-                } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
-            };
-
-            const handleCorregirCalendario = async () => {
-                if (!db) return;
-                if(!confirm("¿Deseas sobreescribir las fechas de los partidos en tu base de datos para que coincidan con el calendario oficial de la FIFA (del 22 al 27 de junio)?")) return;
-                
-                setIsSyncing(true);
-                try {
-                    const CALENDARIO_OFICIAL = [
-                        { l: "argentina", v: "austria", f: "22 Jun 2026", h: "13:00" },
-                        { l: "francia", v: "irak", f: "22 Jun 2026", h: "17:00" },
-                        { l: "noruega", v: "senegal", f: "22 Jun 2026", h: "20:00" },
-                        { l: "jordania", v: "argelia", f: "22 Jun 2026", h: "23:00" },
-                        
-                        { l: "portugal", v: "uzbekistan", f: "23 Jun 2026", h: "13:00" },
-                        { l: "inglaterra", v: "ghana", f: "23 Jun 2026", h: "16:00" },
-                        { l: "panama", v: "croacia", f: "23 Jun 2026", h: "19:00" },
-                        { l: "colombia", v: "rd congo", f: "23 Jun 2026", h: "22:00" },
-
-                        { l: "suiza", v: "canada", f: "24 Jun 2026", h: "15:00" },
-                        { l: "bosnia y herzegovina", v: "catar", f: "24 Jun 2026", h: "15:00" },
-                        { l: "marruecos", v: "haiti", f: "24 Jun 2026", h: "18:00" },
-                        { l: "escocia", v: "brasil", f: "24 Jun 2026", h: "18:00" },
-                        { l: "sudafrica", v: "corea del sur", f: "24 Jun 2026", h: "21:00" },
-                        { l: "republica checa", v: "mexico", f: "24 Jun 2026", h: "21:00" },
-
-                        { l: "curazao", v: "costa de marfil", f: "25 Jun 2026", h: "16:00" },
-                        { l: "ecuador", v: "alemania", f: "25 Jun 2026", h: "16:00" },
-                        { l: "tunez", v: "paises bajos", f: "25 Jun 2026", h: "19:00" },
-                        { l: "japon", v: "suecia", f: "25 Jun 2026", h: "19:00" },
-                        { l: "turquia", v: "estados unidos", f: "25 Jun 2026", h: "22:00" },
-                        { l: "paraguay", v: "australia", f: "25 Jun 2026", h: "22:00" },
-
-                        { l: "noruega", v: "francia", f: "26 Jun 2026", h: "15:00" },
-                        { l: "senegal", v: "irak", f: "26 Jun 2026", h: "15:00" },
-                        { l: "cabo verde", v: "arabia saudita", f: "26 Jun 2026", h: "20:00" },
-                        { l: "uruguay", v: "espana", f: "26 Jun 2026", h: "20:00" },
-                        { l: "nueva zelanda", v: "belgica", f: "26 Jun 2026", h: "23:00" },
-                        { l: "egipto", v: "iran", f: "26 Jun 2026", h: "23:00" },
-
-                        { l: "panama", v: "inglaterra", f: "27 Jun 2026", h: "17:00" },
-                        { l: "croacia", v: "ghana", f: "27 Jun 2026", h: "17:00" },
-                        { l: "colombia", v: "portugal", f: "27 Jun 2026", h: "19:30" },
-                        { l: "rd congo", v: "uzbekistan", f: "27 Jun 2026", h: "19:30" },
-                        { l: "argelia", v: "austria", f: "27 Jun 2026", h: "22:00" },
-                        { l: "jordania", v: "argentina", f: "27 Jun 2026", h: "22:00" }
-                    ];
-
-                    const batch = db.batch();
-                    let actualizados = 0;
-
-                    partidosRef.current.forEach(p => {
-                        const pLoc = normalizeName(p.local);
-                        const pVis = normalizeName(p.visitante);
-                        
-                        const correcto = CALENDARIO_OFICIAL.find(c => 
-                            (c.l === pLoc && c.v === pVis) || (c.l === pVis && c.v === pLoc)
-                        );
-                        
-                        if (correcto && (p.fecha !== correcto.f || p.hora !== correcto.h)) {
-                            batch.update(db.collection('partidos').doc(p.id), { fecha: correcto.f, hora: correcto.h });
-                            actualizados++;
+                        // Insertar llaves oficiales Fase 2 si no existen
+                        if (stagesEliminatoria.includes(match.stage)) {
+                            const refId = `elim_${match.id}`;
+                            const existe = partidosRef.current.find(p => p.id === refId);
+                            if (!existe) {
+                                let faseNombre = match.stage;
+                                if(faseNombre === "LAST_32") faseNombre = "Dieciseisavos de Final"; if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
+                                if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; if(faseNombre === "FINAL") faseNombre = "Gran Final";
+                                const dateObj = new Date(match.utcDate); const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                                const pLocal = traducirNombre(match.homeTeam.name) || "Por Definir"; const pVisitante = traducirNombre(match.awayTeam.name) || "Por Definir";
+                                batch.set(db.collection('partidos').doc(refId), {
+                                    grupo: faseNombre, local: pLocal, visitante: pVisitante, 
+                                    fecha: `${dateObj.getDate()} ${meses[dateObj.getMonth()]} ${dateObj.getFullYear()}`, 
+                                    hora: `${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`, 
+                                    sede: "Por definir", estado: 'pendiente', golesL_real: null, golesV_real: null
+                                });
+                                insertadosFase2++;
+                            }
                         }
                     });
-
-                    if (actualizados > 0) {
+                    if (actualizados > 0 || insertadosFase2 > 0) {
                         await batch.commit();
-                        alert(`¡Éxito! Se corrigieron las fechas y horas de ${actualizados} partidos en la base de datos.`);
-                    } else {
-                        alert("No se requirieron correcciones. Las fechas ya están actualizadas.");
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert("Hubo un error corrigiendo las fechas.");
-                } finally {
-                    setIsSyncing(false);
-                }
+                        if(!silencioso) alert(`Éxito. Se actualizaron ${actualizados} partidos y se insertaron ${insertadosFase2} llaves nuevas.`);
+                    } else { if(!silencioso) alert("La API no detectó partidos nuevos ni llaves pendientes."); }
+                } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
             };
 
             const ordenarPartidosEspecial = (listaPartidos) => {
                 const copia = [...listaPartidos];
                 copia.sort((a, b) => {
-                    const tA = parseFechaEs(a.fecha);
-                    const tB = parseFechaEs(b.fecha);
-                    
-                    const esHoyA = tA === hoyParseado;
-                    const esHoyB = tB === hoyParseado;
-                    
-                    if (esHoyA && !esHoyB) return -1;
-                    if (!esHoyA && esHoyB) return 1;
-                    
-                    if (tA !== tB) return tA - tB;
-                    return parseInt(a.hora) - parseInt(b.hora);
-                });
-                return copia;
+                    const tA = parseFechaEs(a.fecha); const tB = parseFechaEs(b.fecha);
+                    const esHoyA = tA === hoyParseado; const esHoyB = tB === hoyParseado;
+                    if (esHoyA && !esHoyB) return -1; if (!esHoyA && esHoyB) return 1;
+                    if (tA !== tB) return tA - tB; return parseInt(a.hora) - parseInt(b.hora);
+                }); return copia;
             };
 
-            // ==========================================
-            // MOTOR DE SINCRONIZACIÓN ACELERADO
-            // ==========================================
             React.useEffect(() => {
                 if (partidos.length === 0 || !user || !db) return;
-                
                 const checarSincronizacionAutomatica = async () => {
                     try {
-                        const doc = await db.collection('sistema').doc('configuracion').get();
-                        const ahora = new Date().getTime();
-                        
-                        if (!doc.exists) {
-                            await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: ahora }, { merge: true });
-                            handleSyncAPI(true); 
-                        } else {
-                            const ultimaSync = doc.data().ultima_sincronizacion || 0;
-                            // Checar si han pasado más de 2 MINUTOS (120,000 milisegundos)
-                            if ((ahora - ultimaSync) >= 120000) {
-                                await db.collection('sistema').doc('configuracion').update({ ultima_sincronizacion: ahora });
-                                handleSyncAPI(true);
-                            }
-                        }
-                    } catch (error) {
-                        console.error("Error en auto-sync:", error);
-                    }
+                        const doc = await db.collection('sistema').doc('configuracion').get(); const ahora = new Date().getTime();
+                        if (!doc.exists) { await db.collection('sistema').doc('configuracion').set({ ultima_sincronizacion: ahora }, { merge: true }); handleSyncAPI(true); } 
+                        else { const ultimaSync = doc.data().ultima_sincronizacion || 0; if ((ahora - ultimaSync) >= 120000) { await db.collection('sistema').doc('configuracion').update({ ultima_sincronizacion: ahora }); handleSyncAPI(true); } }
+                    } catch (error) { console.error(error); }
                 };
-                
-                // Ejecutamos una vez al cargar
                 checarSincronizacionAutomatica();
-                
-                // Y ahora el intervalo local checa cada 1 MINUTO (60,000 milisegundos) en lugar de cada 15 minutos
-                const intervalo = setInterval(checarSincronizacionAutomatica, 60000);
-                return () => clearInterval(intervalo);
+                const intervalo = setInterval(checarSincronizacionAutomatica, 60000); return () => clearInterval(intervalo);
             }, [partidos.length, user]);
-            // ==========================================
 
-            let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 };
-            let spyPartidosHoy = [];
-            let spyPartidosResto = [];
-
+            let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 }; let spyPartidosHoy = []; let spyPartidosResto = [];
             if (spyUser) {
-                spyStats.aciertos = calcularPuntosEnVivo(spyUser);
+                const calcularAciertosEspia = (jugador) => { let aciertos = 0; partidos.forEach(p => { if (p.estado === 'finalizado') { const suPick = jugador.picks && jugador.picks[p.id]; if (suPick) { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); let res = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate'); if (res === suPick) aciertos++; } } }); return aciertos; };
+                spyStats.aciertos = calcularAciertosEspia(spyUser);
                 partidos.forEach(p => {
                     const pick = spyUser.picks && spyUser.picks[p.id];
-                    if (pick) {
-                        if (p.estado === 'finalizado') {
-                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                            if (((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) !== pick)) spyStats.fallos++;
-                        } else { spyStats.pendientes++; }
-                    }
+                    if (pick) { if (p.estado === 'finalizado') { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); if (((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) !== pick)) spyStats.fallos++; } else { spyStats.pendientes++; } }
                 });
 
                 const spyPartidosFiltrados = partidos.filter(p => {
-                    const pick = spyUser.picks && spyUser.picks[p.id];
-                    if (!pick) return false;
-                    const buscar = spySearchTerm.toLowerCase();
-                    if (!p.local.toLowerCase().includes(buscar) && !p.visitante.toLowerCase().includes(buscar)) return false;
-                    let esCorrecto = null;
-                    if (p.estado === 'finalizado') {
-                        let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
-                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === pick);
-                    }
-                    if (spyFilter === 'aciertos' && esCorrecto !== true) return false;
-                    if (spyFilter === 'fallos' && esCorrecto !== false) return false;
-                    return true;
+                    const pick = spyUser.picks && spyUser.picks[p.id]; if (!pick) return false;
+                    const buscar = spySearchTerm.toLowerCase(); if (!p.local.toLowerCase().includes(buscar) && !p.visitante.toLowerCase().includes(buscar)) return false;
+                    let esCorrecto = null; if (p.estado === 'finalizado') { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === pick); }
+                    if (spyFilter === 'aciertos' && esCorrecto !== true) return false; if (spyFilter === 'fallos' && esCorrecto !== false) return false; return true;
                 });
-
-                spyPartidosHoy = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) === hoyParseado);
-                spyPartidosResto = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) !== hoyParseado);
-
-                spyPartidosResto.sort((a, b) => parseFechaEs(a.fecha) - parseFechaEs(b.fecha) || parseInt(a.hora) - parseInt(b.hora));
-                spyPartidosHoy.sort((a, b) => parseInt(a.hora) - parseInt(b.hora));
+                spyPartidosHoy = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) === hoyParseado); spyPartidosResto = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) !== hoyParseado);
+                spyPartidosResto.sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora)); spyPartidosHoy.sort((a, b) => parseInt(a.hora) - parseInt(b.hora));
             }
 
             if (isLoading && !isLoginExiting) return <div className="min-h-screen flex items-center justify-center bg-[#53121F] font-display text-2xl font-black text-[#C5A97D]">CARGANDO...</div>;
-
             if (!user || !(profile && profile.username) || isLoginExiting) {
                 return (
                     <div className={`min-h-screen flex flex-col items-center justify-center bg-[#00623B] p-4 transition-all duration-700 ${isLoginExiting ? 'opacity-0 scale-110 pointer-events-none' : 'opacity-100 scale-100'}`}>
@@ -607,60 +434,54 @@
                             <div className="border-4 border-[#C5A97D] rounded-xl p-8 text-center bg-[#53121F] relative overflow-hidden">
                                 <h1 className="text-8xl font-black text-white font-display italic drop-shadow-lg tracking-tighter mt-4">26</h1>
                                 <h2 className="text-3xl font-black tracking-widest text-[#C5A97D] uppercase mt-0 mb-8">Quiniela</h2>
-                                <form onSubmit={handleLogin} className="relative z-10">
-                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Ingresa tu nombre" className="w-full px-4 py-4 rounded-xl border-4 border-gray-200 text-black font-black focus:border-[#C5A97D] outline-none mb-6 text-center text-xl uppercase" required />
-                                    <button type="submit" disabled={isLoading} className="w-full bg-[#D31145] border-2 border-white/20 text-white font-black py-4 rounded-xl shadow-xl">ENTRAR AL JUEGO</button>
-                                </form>
+                                <form onSubmit={handleLogin} className="relative z-10"><input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Ingresa tu nombre" className="w-full px-4 py-4 rounded-xl border-4 border-gray-200 text-black font-black focus:border-[#C5A97D] outline-none mb-6 text-center text-xl uppercase" required /><button type="submit" disabled={isLoading} className="w-full bg-[#D31145] border-2 border-white/20 text-white font-black py-4 rounded-xl shadow-xl">ENTRAR AL JUEGO</button></form>
                             </div>
                         </div>
                     </div>
                 );
             }
 
-            const gruposNombres = [...new Set(partidos.map(p => p.grupo))].sort();
+            const partidosGrupos = partidos.filter(p => String(p.grupo).toLowerCase().includes('grupo'));
+            const partidosEliminatoria = partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo'));
+            const gruposNombres = [...new Set(partidosGrupos.map(p => p.grupo))].sort();
+            const eliminatoriasNombres = ['Dieciseisavos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinales', 'Tercer Lugar', 'Gran Final'];
 
-            const rankingEnVivo = Object.values(predicciones)
-                .filter(j => j.locked)
-                .map(jugador => ({
-                    ...jugador,
-                    puntosCalculados: calcularPuntosEnVivo(jugador)
-                }))
-                .sort((a, b) => b.puntosCalculados - a.puntosCalculados);
+            const rankingFase1 = Object.values(predicciones).filter(j => j.locked).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase1(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
+            const rankingFase2 = Object.values(predicciones).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase2(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
+
+            // FUNCIÓN HERO MATCH (Reloj)
+            const renderCountdown = (targetTime) => {
+                const diff = targetTime - currentTime;
+                if (diff <= 0) return "CERRADO";
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((diff / 1000 / 60) % 60);
+                const s = Math.floor((diff / 1000) % 60);
+                if (d > 0) return `${d} Días ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} Hrs`;
+                return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            };
+            const pendingKnockout = partidosEliminatoria.filter(p => p.estado !== 'finalizado' && getMatchTimestamp(p.fecha, p.hora) > currentTime).sort((a,b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
+            const heroMatch = pendingKnockout.length > 0 ? pendingKnockout[0] : null;
 
             const construirFilaSpy = (partido, esAncladoHoy = false) => {
-                const suPick = spyUser.picks && spyUser.picks[partido.id];
-                let esCorrecto = null;
+                const suPick = spyUser.picks && spyUser.picks[partido.id]; let esCorrecto = null;
+                const isLockedByTime = currentTime >= getMatchTimestamp(partido.fecha, partido.hora) - 60000;
+                const pickVisible = isLockedByTime || partido.estado === 'finalizado' || profile.id === spyUser.id; // Evitar trampa
                 
-                if (partido.estado === 'finalizado') {
-                    let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real);
-                    let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                    esCorrecto = (resultadoReal === suPick);
-                }
-
-                let estiloContenedor = "bg-black/30 border-white/10";
-                let estiloBadge = "bg-[#C5A97D] text-[#53121F]";
-
-                if (partido.estado === 'finalizado') {
-                    if (esCorrecto === true) {
-                        estiloContenedor = "bg-green-900/40 border-green-500";
-                        estiloBadge = "bg-green-500 text-white";
-                    } else {
-                        estiloContenedor = "bg-red-900/40 border-red-500";
-                        estiloBadge = "bg-red-500 text-white";
-                    }
-                }
+                if (partido.estado === 'finalizado') { let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real); let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate'); esCorrecto = (resultadoReal === suPick); }
+                let estiloContenedor = "bg-black/30 border-white/10"; let estiloBadge = "bg-[#C5A97D] text-[#53121F]";
+                if (partido.estado === 'finalizado') { if (esCorrecto === true) { estiloContenedor = "bg-green-900/40 border-green-500"; estiloBadge = "bg-green-500 text-white"; } else { estiloContenedor = "bg-red-900/40 border-red-500"; estiloBadge = "bg-red-500 text-white"; } }
+                else if (esAncladoHoy) { estiloContenedor = "bg-[#53121F]/40 border-[#D31145]"; }
 
                 return (
                     <div key={(esAncladoHoy ? 'hoy-' : 'resto-') + partido.id} className={`flex items-center justify-between p-3 rounded-2xl border ${estiloContenedor}`}>
-                        <div className="flex items-center gap-2 w-1/2 md:gap-3">
-                            <span className="text-2xl drop-shadow-md">{getBandera(partido.local)}</span>
-                            <span className="text-[10px] text-white/40 font-black italic">VS</span>
-                            <span className="text-2xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                        </div>
+                        <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl drop-shadow-md">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl drop-shadow-md">{getBandera(partido.visitante)}</span></div>
                         <div className="w-1/2 flex justify-end">
-                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${estiloBadge}`}>
-                                {suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Pendiente'}
-                            </span>
+                            {pickVisible ? (
+                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${estiloBadge}`}>{suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Pendiente'}</span>
+                            ) : (
+                                <span className="text-[9px] font-black uppercase px-3 py-2 rounded-xl text-white/50 bg-black/50 border border-white/5 flex items-center gap-1"><Icon name="eye-off" size={10}/> Oculto 🔒</span>
+                            )}
                         </div>
                     </div>
                 );
@@ -670,27 +491,14 @@
 
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
-                    
                     <div className="bg-[#00623B] pb-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
                         <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full px-4">
-                            <h1 className="font-display font-black text-2xl italic flex items-center gap-1">
-                                <span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span>
-                            </h1>
+                            <h1 className="font-display font-black text-2xl italic flex items-center gap-1"><span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span></h1>
                             <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30 shadow-sm">
-                                    <span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span>
-                                </div>
-                                <button 
-                                    onClick={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña:"); if(pwd === "26zorras27") setShowAdminModal(true); }} 
-                                    className="bg-black/30 text-[#C5A97D] border border-[#C5A97D]/30 p-2.5 rounded-full shadow-md active:scale-95 transition-all flex items-center justify-center"
-                                    aria-label="Admin"
-                                >
-                                    <Icon name="search" size={16} className="hidden" />
-                                    ⚙️
-                                </button>
+                                <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30 shadow-sm"><span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span></div>
+                                <button onClick={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña:"); if(pwd === "26zorras27") setShowAdminModal(true); }} className="bg-black/30 text-[#C5A97D] border border-[#C5A97D]/30 p-2.5 rounded-full shadow-md active:scale-95 transition-all flex items-center justify-center"><Icon name="search" size={16} className="hidden" />⚙️</button>
                             </div>
                         </div>
-                        
                         <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2 px-4">
                             {visibilidad.grupos && <button onClick={() => setActiveTab('grupos')} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grupos' ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>Fase de Grupos</button>}
                             {visibilidad.ranking && <button onClick={() => setActiveTab('ranking')} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'ranking' ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>Ranking Grupos</button>}
@@ -703,29 +511,12 @@
                         {activeTab === 'grupos' && (
                             <div className="animate-fade-in">
                                 <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col md:flex-row justify-between items-center mb-8 shadow-xl">
-                                    <div className="mb-4 md:mb-0 text-center md:text-left">
-                                        <h3 className="text-xl font-display font-black text-white">Tu Progreso</h3>
-                                        <p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).length} partidos.</p>
-                                    </div>
-                                    <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] text-white shadow-lg hover:scale-105'}`}>
-                                        <Icon name={profile.locked ? "lock" : "unlock"} size={20} />
-                                        {profile.locked ? 'QUINIELA BLOQUEADA' : 'GUARDAR Y BLOQUEAR'}
-                                    </button>
+                                    <div className="mb-4 md:mb-0 text-center md:text-left"><h3 className="text-xl font-display font-black text-white">Tu Progreso (Fase 1)</h3><p className="text-sm text-[#C5A97D] font-bold">Has pronosticado {Object.keys(profile.picks || {}).filter(id => partidosGrupos.some(p => p.id === id)).length} partidos.</p></div>
+                                    <button onClick={handleBloquearQuiniela} disabled={profile.locked} className={`px-8 py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all w-full md:w-auto ${profile.locked ? 'bg-black/50 text-white/50 cursor-not-allowed border border-white/10' : 'bg-[#D31145] text-white shadow-lg hover:scale-105'}`}><Icon name={profile.locked ? "lock" : "unlock"} size={20} />{profile.locked ? 'FASE 1 BLOQUEADA' : 'GUARDAR Y BLOQUEAR'}</button>
                                 </div>
-
-                                {partidos.length === 0 ? (
-                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">El torneo está vacío.</p></div>
-                                ) : (
+                                {partidosGrupos.length === 0 ? ( <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">La fase de grupos está vacía.</p></div> ) : (
                                     gruposNombres.map(grupo => {
-                                        const partidosDelGrupo = partidos.filter(p => p.grupo === grupo);
-                                        
-                                        partidosDelGrupo.sort((a, b) => {
-                                            const dateA = parseFechaEs(a.fecha);
-                                            const dateB = parseFechaEs(b.fecha);
-                                            if (dateA !== dateB) return dateA - dateB;
-                                            return parseInt(a.hora) - parseInt(b.hora);
-                                        });
-
+                                        const partidosDelGrupo = partidosGrupos.filter(p => p.grupo === grupo).sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
                                         return (
                                             <div key={grupo} className="mb-12">
                                                 <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-white/10 pb-2 drop-shadow-md">{grupo}</h2>
@@ -735,30 +526,17 @@
                                                         return (
                                                             <div key={partido.id} className={`panini-card rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${profile.locked ? 'opacity-90' : 'hover:-translate-y-1'}`}>
                                                                 {partido.estado === 'finalizado' && <div className="absolute top-0 right-0 bg-[#D31145] text-white text-[9px] px-2 py-1 font-black uppercase tracking-widest rounded-bl-lg z-20">Finalizado</div>}
-                                                                
                                                                 <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/20 pb-3">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div>
-                                                                        <div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora} Hrs</div>
-                                                                    </div>
+                                                                    <div className="flex flex-col gap-1"><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora} Hrs</div></div>
                                                                     <div className="flex items-center gap-1 text-white/50 text-[10px] font-black tracking-widest uppercase text-right max-w-[50%]"><Icon name="map-pin" size={12}/> {partido.sede}</div>
                                                                 </div>
-
                                                                 <div className="flex flex-col w-full gap-3 mt-2">
                                                                     <div className="flex items-center justify-between w-full gap-2">
-                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
-                                                                            <span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span>
-                                                                            <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span>
-                                                                        </button>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span></button>
                                                                         <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
-                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] shadow-md scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}>
-                                                                            <span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span>
-                                                                            <span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span>
-                                                                        </button>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span></button>
                                                                     </div>
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent' : 'bg-black/20 border-white/5 text-white/60'}`}>
-                                                                        Empate
-                                                                    </button>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow' : 'bg-black/20 border-white/5 text-white/60'}`}>Empate</button>
                                                                 </div>
                                                             </div>
                                                         )
@@ -772,10 +550,66 @@
                         )}
 
                         {activeTab === 'eliminatoria' && (
-                            <div className="panini-card border-none p-10 rounded-3xl text-center flex flex-col items-center animate-fade-in mt-8">
-                                <Icon name="lock" size={64} className="text-[#C5A97D] mb-6" />
-                                <h3 className="text-3xl font-display font-black mb-4">FASE BLOQUEADA</h3>
-                                <p className="text-white/80 font-bold">Las llaves se desbloquearán el <span className="text-white bg-[#D31145] px-2 py-1 rounded-md mx-1 font-black">28 de Junio de 2026</span>.</p>
+                            <div className="animate-fade-in">
+                                {heroMatch && (
+                                    <div className="bg-gradient-to-r from-[#D31145] to-[#53121F] p-1 rounded-3xl mb-10 shadow-[0_20px_50px_rgba(211,17,69,0.3)] transform transition-transform">
+                                        <div className="bg-[#021A10] p-6 md:p-10 rounded-[22px] flex flex-col items-center text-center relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A97D] opacity-10 rounded-full blur-3xl transform translate-x-20 -translate-y-20"></div>
+                                            <div className="bg-[#D31145] text-white text-[10px] px-3 py-1 font-black uppercase tracking-widest rounded-full mb-6 border border-white/20 shadow-lg animate-pulse">Siguiente Partido</div>
+                                            <div className="flex items-center justify-center gap-4 w-full mb-8 relative z-10">
+                                                <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.local)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.local}</span></div>
+                                                <div className="flex flex-col items-center w-1/5"><span className="font-display font-black text-2xl md:text-4xl text-[#C5A97D]/50 italic mb-2">VS</span></div>
+                                                <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.visitante)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.visitante}</span></div>
+                                            </div>
+                                            <div className="font-display font-black text-4xl md:text-6xl text-[#C5A97D] tracking-tighter drop-shadow-lg tabular-nums">{renderCountdown(getMatchTimestamp(heroMatch.fecha, heroMatch.hora))}</div>
+                                            <p className="text-[#C5A97D]/70 text-xs font-bold uppercase tracking-widest mt-2">{heroMatch.fecha} • {heroMatch.hora} Hrs</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col mb-8 shadow-xl">
+                                    <h3 className="text-2xl font-display font-black text-[#C5A97D] text-center mb-2 uppercase tracking-widest">Regla de Oro (Fase 2)</h3>
+                                    <p className="text-sm text-white/90 font-bold text-center">Tu pronóstico es válido únicamente para los <span className="bg-[#D31145] px-2 py-0.5 rounded text-white font-black">90 Minutos</span> reglamentarios. Si crees que el juego se va a Tiempos Extra, debes elegir "Empate".</p>
+                                </div>
+
+                                {partidosEliminatoria.length === 0 ? (
+                                    <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10"><p className="font-display text-xl font-bold">Esperando llaves oficiales...</p></div>
+                                ) : (
+                                    eliminatoriasNombres.map(grupo => {
+                                        const partidosDelGrupo = partidosEliminatoria.filter(p => p.grupo === grupo).sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
+                                        if(partidosDelGrupo.length === 0) return null;
+                                        return (
+                                            <div key={grupo} className="mb-12">
+                                                <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-[#C5A97D]/30 pb-2 drop-shadow-md flex items-center gap-3"><Icon name="flame" className="text-[#C5A97D]"/>{grupo}</h2>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {partidosDelGrupo.map(partido => {
+                                                        const miPick = profile.picks && profile.picks[partido.id];
+                                                        const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
+                                                        const bloqueado = partido.estado === 'finalizado' || currentTime >= matchTime - 60000;
+                                                        
+                                                        return (
+                                                            <div key={partido.id} className={`bg-[#021A10] border rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${bloqueado ? 'border-white/10 opacity-90' : 'border-[#C5A97D]/40 shadow-[0_10px_30px_rgba(197,169,125,0.1)] hover:-translate-y-1'}`}>
+                                                                <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/10 pb-3">
+                                                                    <div className="flex flex-col gap-1"><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora}</div></div>
+                                                                    {bloqueado ? <span className="bg-black/60 text-red-400 text-[9px] px-2.5 py-1.5 rounded-full font-black uppercase flex items-center gap-1 border border-red-900/50"><Icon name="lock" size={10}/> Cerrado</span> : <span className="bg-[#00623B]/30 text-green-400 text-[9px] px-2.5 py-1.5 rounded-full font-black uppercase flex items-center gap-1 border border-green-500/30 animate-pulse"><Icon name="unlock" size={10}/> Abierto</span>}
+                                                                </div>
+                                                                <div className="flex flex-col w-full gap-3 mt-2 relative z-10">
+                                                                    <div className="flex items-center justify-between w-full gap-2">
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={bloqueado} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/40 border-white/5 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span><span className="font-black text-[10px] text-center leading-tight uppercase tracking-wide truncate w-full">{partido.local}</span></button>
+                                                                        <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/30 italic px-1">VS</div>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={bloqueado} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/40 border-white/5 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span><span className="font-black text-[10px] text-center leading-tight uppercase tracking-wide truncate w-full">{partido.visitante}</span></button>
+                                                                    </div>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={bloqueado} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border flex items-center justify-center gap-2 ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow' : 'bg-black/20 border-white/5 text-white/60'}`}>Empate <span className="text-[8px] bg-black/20 px-1.5 py-0.5 rounded opacity-70">90 MIN</span></button>
+                                                                </div>
+                                                                <div className="text-center mt-4"><span className="text-[8px] text-[#D31145] font-black uppercase tracking-widest bg-[#D31145]/10 px-2 py-1 rounded">Se bloquea 1 minuto antes</span></div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
                             </div>
                         )}
 
@@ -783,39 +617,15 @@
                             <div className="space-y-4 animate-fade-in pb-10">
                                 <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-xl overflow-hidden">
                                     <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-1">Premio Fase 1</h2>
-                                    <div className="font-display font-black text-5xl md:text-7xl text-white tracking-tighter mb-0 leading-none">
-                                        {premios.mxnFase1}<span className="text-2xl md:text-3xl ml-1">MXN</span>
-                                    </div>
+                                    <div className="font-display font-black text-5xl md:text-7xl text-white tracking-tighter mb-0 leading-none">{premios.mxnFase1}<span className="text-2xl md:text-3xl ml-1">MXN</span></div>
                                     <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase mt-2">o {premios.crcFase1} CRC</div>
                                 </div>
-                                
-                                {!(profile && profile.locked) && (
-                                    <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6">
-                                        <p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Ve a Grupos y presiona "Guardar y Bloquear" para aparecer aquí.</p>
-                                    </div>
-                                )}
-                                
+                                {!(profile && profile.locked) && <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6"><p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Ve a Grupos y presiona "Guardar y Bloquear" para aparecer aquí.</p></div>}
                                 <div className="space-y-4">
-                                    {rankingEnVivo.map((jugador, idx) => (
+                                    {rankingFase1.map((jugador, idx) => (
                                         <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] shadow-lg ${idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D]' : jugador.id === (profile && profile.id) ? 'bg-white text-black ring-4 ring-[#D31145]' : 'bg-[#033B25] border border-white/5 text-white'}`}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${idx === 0 ? 'text-[#C5A97D]' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-[#CD7F32]' : 'text-white/20 text-4xl'}`}>
-                                                    {idx + 1}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>
-                                                        {jugador.id === (profile && profile.id) && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}
-                                                    </div>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70">
-                                                        <Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right pr-2">
-                                                <div className="font-display font-black text-4xl leading-none">{jugador.puntosCalculados}</div>
-                                                <div className="text-[10px] font-black tracking-widest uppercase mt-1">Puntos</div>
-                                            </div>
+                                            <div className="flex items-center gap-4"><div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${idx === 0 ? 'text-[#C5A97D]' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-[#CD7F32]' : 'text-white/20 text-4xl'}`}>{idx + 1}</div><div><div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}</div><span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span></div></div>
+                                            <div className="text-right pr-2"><div className="font-display font-black text-4xl leading-none">{jugador.puntosCalculados}</div><div className="text-[10px] font-black tracking-widest uppercase mt-1">Puntos</div></div>
                                         </div>
                                     ))}
                                 </div>
@@ -828,23 +638,25 @@
                                     <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-2">Gran Premio Final</h2>
                                     <div className="font-display font-black text-6xl md:text-7xl text-white tracking-tighter leading-none">{premios.mxnFase2}<span className="text-3xl ml-1">MXN</span></div>
                                     <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase mt-2">o {premios.crcFase2} CRC</div>
+                                    <div className="mt-4 inline-block bg-[#C5A97D]/20 border border-[#C5A97D]/40 text-[#C5A97D] text-[9px] px-3 py-1 font-black uppercase tracking-widest rounded-full">Puntos inician desde cero</div>
                                 </div>
-                                <div className="text-center py-16 opacity-70 bg-black/10 rounded-3xl border border-white/10">
-                                    <p className="font-display text-xl font-bold">El Ranking de la Fase Eliminatoria estará disponible pronto.</p>
+                                <div className="space-y-4">
+                                    {rankingFase2.map((jugador, idx) => (
+                                        <div key={`rk2-${jugador.id}`} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all shadow-lg ${idx === 0 ? 'bg-gradient-to-br from-[#C5A97D] to-[#8C734A] text-[#53121F]' : jugador.id === profile?.id ? 'bg-[#53121F] text-white ring-2 ring-[#C5A97D]' : 'bg-black/40 border border-white/5 text-white'}`}>
+                                            <div className="flex items-center gap-4"><div className="w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl">{idx + 1}</div><div><div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className="bg-white text-black text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}</div><span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span></div></div>
+                                            <div className="text-right pr-2"><div className="font-display font-black text-5xl leading-none">{jugador.puntosCalculados}</div><div className="text-[10px] font-black tracking-widest uppercase mt-1">Pts 2da Fase</div></div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
-
                     </main>
 
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
-                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl flex flex-col relative shadow-2xl overflow-hidden" style={{ maxHeight: '85vh' }}>
+                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl flex flex-col relative shadow-2xl h-full max-h-[85dvh] overflow-hidden">
                                 <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5 shrink-0">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h2 className="font-display font-black text-2xl text-white uppercase">Apuestas de <span className="text-[#C5A97D]">{spyUser.username}</span></h2>
-                                        <button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3"><Icon name="x" size={24} /></button>
-                                    </div>
+                                    <div className="flex justify-between items-start mb-4"><h2 className="font-display font-black text-2xl text-white uppercase">Apuestas de <span className="text-[#C5A97D]">{spyUser.username}</span></h2><button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3"><Icon name="x" size={24} /></button></div>
                                     <div className="grid grid-cols-3 gap-2 mb-4">
                                         <div className="bg-green-900/40 border border-green-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-green-400 leading-none">{spyStats.aciertos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-green-200 mt-1">Aciertos</span></div>
                                         <div className="bg-red-900/40 border border-red-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-red-400 leading-none">{spyStats.fallos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-red-200 mt-1">Fallos</span></div>
@@ -853,32 +665,22 @@
                                     <div className="flex flex-col gap-3">
                                         <div className="relative w-full"><div className="absolute inset-y-0 left-0 pl-3 flex items-center"><Icon name="search" size={16} className="text-[#C5A97D]/50" /></div><input type="text" placeholder="Buscar país..." value={spySearchTerm} onChange={e => setSpySearchTerm(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-[#C5A97D]" /></div>
                                         <div className="flex gap-2 w-full overflow-x-auto hide-scrollbar pb-1">
-                                            {['all', 'aciertos', 'fallos'].map(f => (
-                                                <button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>
-                                            ))}
+                                            {['all', 'aciertos', 'fallos'].map(f => (<button key={f} onClick={() => setSpyFilter(f)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${spyFilter === f ? 'bg-[#C5A97D] text-[#53121F]' : 'bg-black/30 text-[#C5A97D]/70 border border-white/5'}`}>{f === 'all' ? 'Todos' : f === 'aciertos' ? '✅ Aciertos' : '❌ Fallos'}</button>))}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="overflow-y-auto custom-scrollbar p-4 bg-[#033B25]/90 flex-1 touch-pan">
-                                    
+                                <div className="overflow-y-auto flex-1 custom-scrollbar p-4 bg-[#033B25]/90 touch-pan pb-20">
                                     {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && (
                                         <div className="mb-6">
-                                            <div className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg mb-3 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest shadow-lg">
-                                                <Icon name="flame" size={14} /> Juegan Hoy
-                                            </div>
-                                            <div className="space-y-3">
-                                                {spyPartidosHoy.map(partido => construirFilaSpy(partido, true))}
-                                            </div>
+                                            <div className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg mb-3 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest shadow-lg"><Icon name="flame" size={14} /> Juegan Hoy</div>
+                                            <div className="space-y-3">{spyPartidosHoy.map(partido => construirFilaSpy(partido, true))}</div>
                                             <div className="w-full h-px bg-white/10 my-6"></div>
                                         </div>
                                     )}
-
                                     <div className="space-y-3">
                                         {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && <h3 className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Resto del Torneo</h3>}
                                         {spyPartidosResto.map(partido => construirFilaSpy(partido, false))}
-                                        {spyPartidosResto.length === 0 && spyPartidosHoy.length === 0 && (
-                                            <p className="text-center text-white/40 text-xs font-bold mt-4">No se encontraron predicciones.</p>
-                                        )}
+                                        {spyPartidosResto.length === 0 && spyPartidosHoy.length === 0 && <p className="text-center text-white/40 text-xs font-bold mt-4">No se encontraron predicciones.</p>}
                                     </div>
                                 </div>
                             </div>
@@ -887,15 +689,14 @@
 
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
-                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative flex flex-col overflow-hidden" style={{ maxHeight: '85vh' }}>
+                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative flex flex-col h-full max-h-[85dvh] overflow-hidden">
                                 <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2 z-10"><Icon name="x" size={24} /></button>
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4 shrink-0">Panel de Control</h2>
-                                <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar touch-pan flex-1 pb-20">
-                                    
+                                <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar touch-pan pb-20">
                                     <div className="bg-[#033B25] p-5 rounded-2xl border border-[#C5A97D]/30 shadow-lg">
-                                        <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Ocultar/Mostrar Pestañas (En Vivo)</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Visibilidad Pestañas</p>
                                         <div className="space-y-3">
-                                            {[{id: 'grupos', label: 'Fase de Grupos'}, {id: 'ranking', label: 'Ranking Grupos'}, {id: 'eliminatoria', label: 'Eliminatoria (Llaves)'}, {id: 'ranking_eliminatoria', label: 'Ranking Final'}].map(tab => (
+                                            {[{id: 'grupos', label: 'Fase de Grupos'}, {id: 'ranking', label: 'Ranking Grupos'}, {id: 'eliminatoria', label: 'Fase Eliminatoria'}, {id: 'ranking_eliminatoria', label: 'Ranking Final'}].map(tab => (
                                                 <label key={tab.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl cursor-pointer">
                                                     <span className="text-xs font-bold uppercase text-white/90">{tab.label}</span>
                                                     <input type="checkbox" checked={visibilidad[tab.id] !== false} onChange={e => handleToggleVisibilidad(tab.id, e.target.checked)} className="w-5 h-5 accent-[#C5A97D]" />
@@ -903,78 +704,26 @@
                                             ))}
                                         </div>
                                     </div>
-
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual de Resultados (Hoy arriba 📌)</p>
-                                        <div className="max-h-48 overflow-y-auto custom-scrollbar pr-2 space-y-2 touch-pan">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Sincronización Avanzada (Fase 2)</p>
+                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"><Icon name="clock" size={16}/> Sincronizar Api & Llaves</button>
+                                    </div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Configuración Premios</p>
+                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase">Premio Fase 1</h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase1} onChange={e => setInputPremios({...inputPremios, mxnFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase1} onChange={e => setInputPremios({...inputPremios, crcFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
+                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase">Gran Premio Final</h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase2} onChange={e => setInputPremios({...inputPremios, mxnFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase2} onChange={e => setInputPremios({...inputPremios, crcFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
+                                        <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase tracking-widest active:scale-95 transition-transform">Guardar Premios</button>
+                                    </div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual Rápida</p>
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-2 touch-pan">
                                             {partidosOrdenadosAdmin.map(p => (
-                                                <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
-                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between">
-                                                        <span>{p.fecha} - {p.hora} Hrs</span>
-                                                        <span>{p.grupo}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between w-full">
-                                                        <span className="text-xs font-bold w-1/3 truncate text-right pr-2">{p.local}</span>
-                                                        <div className="flex items-center gap-1">
-                                                            <input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" />
-                                                            <span className="text-xs text-white/50 font-bold">-</span>
-                                                            <input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" />
-                                                        </div>
-                                                        <span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span>
-                                                    </div>
-                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1 transition-colors active:bg-green-700">Cerrar y Guardar</button>
-                                                </div>
+                                                <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10"><div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div><div className="flex items-center justify-between w-full"><span className="text-xs font-bold w-1/3 truncate text-right pr-2">{p.local}</span><div className="flex items-center gap-1"><input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" /><span className="text-xs text-white/50 font-bold">-</span><input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" /></div><span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span></div><button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1 transition-colors active:bg-green-700">Cerrar y Guardar</button></div>
                                             ))}
                                         </div>
                                     </div>
-                                    
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Sincronización Avanzada</p>
-                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                                            <Icon name="clock" size={16}/> Sincronizar Goles (API)
-                                        </button>
-                                        <button onClick={handleCorregirCalendario} disabled={isSyncing} className="w-full bg-[#D31145] text-white font-black py-3 rounded-xl text-xs uppercase shadow-lg border border-red-500/50 active:scale-95 transition-transform">
-                                            ⚠️ Corregir Fechas Oficiales
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Configuración de Premios</p>
-                                        
-                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5">
-                                            <h4 className="text-xs font-bold text-white mb-2 uppercase">Premio Fase 1</h4>
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase1} onChange={e => setInputPremios({...inputPremios, mxnFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div>
-                                                <div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase1} onChange={e => setInputPremios({...inputPremios, crcFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div>
-                                            </div>
-                                        </div>
-
-                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5">
-                                            <h4 className="text-xs font-bold text-white mb-2 uppercase">Gran Premio Final</h4>
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase2} onChange={e => setInputPremios({...inputPremios, mxnFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div>
-                                                <div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase2} onChange={e => setInputPremios({...inputPremios, crcFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div>
-                                            </div>
-                                        </div>
-                                        <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase tracking-widest active:scale-95 transition-transform">Guardar Premios</button>
-                                    </div>
-                                    
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button>
-                                    </div>
-                                    
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>
-                                        {Object.values(predicciones).map(j => (
-                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
-                                                <span className="font-bold text-xs uppercase text-white">{j.locked ? '🔒' : '🔓'} {j.username}</span>
-                                                <div className="flex gap-2">
-                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}
-                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>{Object.values(predicciones).map(j => (<div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2"><span className="font-bold text-xs uppercase text-white">{j.locked ? '🔒' : '🔓'} {j.username}</span><div className="flex gap-2">{j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}<button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button></div></div>))}</div>
                                 </div>
                             </div>
                         </div>
