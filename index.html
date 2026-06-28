@@ -317,10 +317,12 @@
                 if (!profile || !db) return;
                 const partido = partidos.find(p => p.id === partidoId);
                 const isFaseGrupos = String(partido.grupo).toLowerCase().includes('grupo');
-                if (isFaseGrupos && profile.locked) return; 
+                
+                // Si NO tiene pase especial, bloqueamos normalmente
+                if (!profile.paseEspecial && isFaseGrupos && profile.locked) return; 
                 
                 const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
-                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return; 
+                if (!profile.paseEspecial && (currentTime >= matchTime - 60000 || partido.estado === 'finalizado')) return; 
 
                 const picksActuales = profile.picks || {};
                 const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
@@ -331,7 +333,9 @@
                 if (!profile || !db) return;
                 const partido = partidos.find(p => p.id === partidoId);
                 const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
-                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return;
+                
+                // Si NO tiene pase especial, bloqueamos normalmente
+                if (!profile.paseEspecial && (currentTime >= matchTime - 60000 || partido.estado === 'finalizado')) return;
                 
                 let numL = Number(gl); let numV = Number(gv);
                 if(isNaN(numL) || isNaN(numV)) return;
@@ -345,11 +349,11 @@
                 alert("¡Marcador exacto guardado!");
             };
 
-            const handleBloquearQuiniela = async () => {
-                if (!db || !profile) return;
-                if(confirm(`¿Estás seguro de GUARDAR Y BLOQUEAR tu Fase de Grupos?`)) {
-                    await db.collection('usuarios').doc(user.uid).update({ locked: true });
-                    setProfile({...profile, locked: true}); alert("¡Fase de Grupos Bloqueada!");
+            const handleTogglePaseEspecial = async (userId, currentState, userName) => {
+                if (!db) return;
+                const action = currentState ? "QUITAR" : "DAR";
+                if(confirm(`¿${action} pase especial (segunda oportunidad) a "${userName}"?`)) {
+                    await db.collection('usuarios').doc(userId).update({ paseEspecial: !currentState });
                 }
             };
 
@@ -622,11 +626,11 @@
                                                                 </div>
                                                                 <div className="flex flex-col w-full gap-3 mt-2">
                                                                     <div className="flex items-center justify-between w-full gap-2">
-                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span></button>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={!profile.paseEspecial && (profile.locked || partido.estado==='finalizado')} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.local}</span></button>
                                                                         <div className="flex flex-col items-center justify-center font-display font-black text-sm text-[#C5A97D]/40 italic px-1">VS</div>
-                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={profile.locked || partido.estado==='finalizado'} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span></button>
+                                                                        <button onClick={() => guardarTendencia(partido.id, 'visitante')} disabled={!profile.paseEspecial && (profile.locked || partido.estado==='finalizado')} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'visitante' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/30 border-white/10 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.visitante)}</span><span className="font-black text-xs text-center leading-tight uppercase tracking-wide break-words w-full">{partido.visitante}</span></button>
                                                                     </div>
-                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={profile.locked || partido.estado==='finalizado'} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow' : 'bg-black/20 border-white/5 text-white/60'}`}>Empate</button>
+                                                                    <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={!profile.paseEspecial && (profile.locked || partido.estado==='finalizado')} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow' : 'bg-black/20 border-white/5 text-white/60'}`}>Empate</button>
                                                                 </div>
                                                             </div>
                                                         )
@@ -643,7 +647,7 @@
                             <div className="animate-fade-in">
                                 {heroMatch && (() => {
                                     const heroMatchTime = getMatchTimestamp(heroMatch.fecha, heroMatch.hora);
-                                    const isHeroLocked = heroMatch.estado === 'finalizado' || currentTime >= heroMatchTime - 60000;
+                                    const isHeroLocked = !profile.paseEspecial && (heroMatch.estado === 'finalizado' || currentTime >= heroMatchTime - 60000);
                                     const heroPickRaw = profile.picks && profile.picks[heroMatch.id];
                                     const heroPick = typeof heroPickRaw === 'object' ? heroPickRaw.res : heroPickRaw;
                                     
@@ -698,7 +702,7 @@
                                                         const miPick = typeof miPickRaw === 'object' ? miPickRaw.res : miPickRaw;
                                                         
                                                         const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
-                                                        const bloqueado = partido.estado === 'finalizado' || currentTime >= matchTime - 60000;
+                                                        const bloqueado = !profile.paseEspecial && (partido.estado === 'finalizado' || currentTime >= matchTime - 60000);
                                                         
                                                         return (
                                                             <div key={partido.id} className={`bg-[#021A10] border rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${bloqueado ? 'border-white/10 opacity-90' : 'border-[#C5A97D]/40 shadow-[0_10px_30px_rgba(197,169,125,0.1)] hover:-translate-y-1'}`}>
@@ -939,7 +943,23 @@
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>{Object.values(predicciones).map(j => (<div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2"><span className="font-bold text-xs uppercase text-white">{j.locked ? '🔒' : '🔓'} {j.username}</span><div className="flex gap-2">{j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}<button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button></div></div>))}</div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>
+                                        {Object.values(predicciones).map(j => (
+                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
+                                                <span className="font-bold text-xs uppercase text-white flex items-center gap-1">
+                                                    {j.locked ? '🔒' : '🔓'} {j.paseEspecial ? '⭐' : ''} {j.username}
+                                                </span>
+                                                <div className="flex gap-2 flex-wrap justify-end">
+                                                    <button onClick={() => handleTogglePaseEspecial(j.id, j.paseEspecial, j.username)} className={`${j.paseEspecial ? 'bg-yellow-600' : 'bg-gray-600'} text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform`}>
+                                                        {j.paseEspecial ? 'Quitar Pase' : 'Dar Pase'}
+                                                    </button>
+                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}
+                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>,
