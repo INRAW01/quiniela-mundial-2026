@@ -839,9 +839,9 @@
                         )}
                     </main>
 
-                    {/* VENTANA MODAL ESPÍA OPTIMIZADA PARA MÓVIL Y DESKTOP */}
-                    {spyUser && (
-                        <div className="fixed top-0 left-0 w-full h-[100dvh] bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
+                    {/* VENTANA MODAL ESPÍA OPTIMIZADA MEDIANTE PORTAL */}
+                    {spyUser && ReactDOM.createPortal(
+                        <div className="fixed inset-0 w-full h-[100dvh] bg-black/95 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
                             <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-2xl h-auto max-h-[85dvh] overflow-hidden">
                                 <div className="shrink-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 p-4 md:p-6">
                                     <div className="flex justify-between items-start mb-4"><h2 className="font-display font-black text-2xl text-white uppercase leading-tight">Apuestas de <br className="md:hidden"/><span className="text-[#C5A97D]">{spyUser.data.username}</span></h2><button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3 ml-2"><Icon name="x" size={24} /></button></div>
@@ -857,7 +857,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-8 touch-pan" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-8 touch-pan overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                                     {spyPartidosHoy.length > 0 && spySearchTerm === '' && spyFilter === 'all' && (
                                         <div className="mb-6">
                                             <div className="bg-[#D31145] text-white px-3 py-1.5 rounded-lg mb-3 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest shadow-lg"><Icon name="flame" size={14} /> Juegan Hoy</div>
@@ -872,16 +872,17 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
 
-                    {/* VENTANA MODAL ADMIN OPTIMIZADA PARA MÓVIL Y DESKTOP */}
-                    {showAdminModal && (
-                        <div className="fixed top-0 left-0 w-full h-[100dvh] bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
+                    {/* VENTANA MODAL ADMIN OPTIMIZADA MEDIANTE PORTAL */}
+                    {showAdminModal && ReactDOM.createPortal(
+                        <div className="fixed inset-0 w-full h-[100dvh] bg-black/95 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
                             <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative flex flex-col h-auto max-h-[85dvh] overflow-hidden shadow-[0_0_50px_rgba(197,169,125,0.2)]">
                                 <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2 z-10"><Icon name="x" size={24} /></button>
                                 <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4 shrink-0 flex items-center gap-2"><Icon name="target" /> Panel de Control</h2>
-                                <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar touch-pan pb-6" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar touch-pan pb-6 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                                     <div className="bg-[#033B25] p-5 rounded-2xl border border-[#C5A97D]/30 shadow-lg">
                                         <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Visibilidad Pestañas</p>
                                         <div className="space-y-3">
@@ -906,7 +907,7 @@
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Asignación Manual de Llaves</p>
-                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan">
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan overscroll-contain">
                                             {partidosOrdenadosAdmin.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).map(p => (
                                                 <div key={'admin-llave-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
                                                     <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div>
@@ -922,7 +923,7 @@
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados Manuales y Penales</p>
-                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan">
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan overscroll-contain">
                                             {partidosOrdenadosAdmin.map(p => (
                                                 <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
                                                     <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div>
@@ -941,7 +942,8 @@
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>{Object.values(predicciones).map(j => (<div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2"><span className="font-bold text-xs uppercase text-white">{j.locked ? '🔒' : '🔓'} {j.username}</span><div className="flex gap-2">{j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}<button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button></div></div>))}</div>
                                 </div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
             );
