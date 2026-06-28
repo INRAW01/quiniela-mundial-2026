@@ -22,7 +22,7 @@
         .font-display { font-family: 'Outfit', sans-serif; }
         .panini-gradient { background: linear-gradient(135deg, #00623B 0%, #033B25 100%); }
         .panini-card { background-color: #033B25; border: 1px solid rgba(197, 169, 125, 0.2); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
-        .casino-glow { box-shadow: 0 0 20px rgba(197, 169, 125, 0.4), inset 0 0 10px rgba(197, 169, 125, 0.2); }
+        .casino-glow { box-shadow: 0 0 20px rgba(197, 169, 125, 0.5), inset 0 0 10px rgba(197, 169, 125, 0.3); border-color: #C5A97D !important; }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
@@ -51,7 +51,8 @@
                 'check': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
                 'search': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
                 'flame': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>,
-                'target': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                'target': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>,
+                'crown': <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4h20l-2 16H4z"/><path d="M12 12l4-8 4 8"/><path d="M12 12L8 4 4 12"/></svg>
             };
             return icons[name] || <svg width={size} height={size}></svg>;
         };
@@ -84,28 +85,27 @@
             remove: function(key) { try { window.localStorage.removeItem(key); } catch(e) {} }
         };
 
-        const BANDERAS = {
-            'México': '🇲🇽', 'Sudáfrica': '🇿🇦', 'Corea del Sur': '🇰🇷', 'República Checa': '🇨🇿',
-            'Canadá': '🇨🇦', 'Bosnia y Herzegovina': '🇧🇦', 'Catar': '🇶🇦', 'Suiza': '🇨🇭',
-            'Brasil': '🇧🇷', 'Marruecos': '🇲🇦', 'Haití': '🇭🇹', 'Escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-            'Estados Unidos': '🇺🇸', 'Paraguay': '🇵🇾', 'Australia': '🇦🇺', 'Turquía': '🇹🇷',
-            'Alemania': '🇩🇪', 'Curazao': '🇨🇼', 'Costa de Marfil': '🇨🇮', 'Ecuador': '🇪🇨',
-            'Países Bajos': '🇳🇱', 'Japón': '🇯🇵', 'Túnez': '🇹🇳', 'Suecia': '🇸🇪',
-            'Bélgica': '🇧🇪', 'Egipto': '🇪🇬', 'Irán': '🇮🇷', 'Nueva Zelanda': '🇳🇿',
-            'España': '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arabia Saudita': '🇸🇦', 'Uruguay': '🇺🇾',
-            'Francia': '🇫🇷', 'Senegal': '🇸🇳', 'Noruega': '🇳🇴', 'Irak': '🇮🇶',
-            'Argentina': '🇦🇷', 'Argelia': '🇩🇿', 'Austria': '🇦🇹', 'Jordania': '🇯🇴',
-            'Portugal': '🇵🇹', 'Uzbekistán': '🇺🇿', 'Colombia': '🇨🇴', 'RD Congo': '🇨🇩',
-            'Inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croacia': '🇭🇷', 'Ghana': '🇬🇭', 'Panamá': '🇵🇦'
-        };
-        const getBandera = (pais) => BANDERAS[pais] || '🏳️';
-
         const normalizeName = (str) => {
             if(!str) return "";
             return String(str).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         };
 
-        // PARSER PRECISO DE FECHA Y HORA (Para bloqueos de 1 minuto)
+        const BANDERAS = {
+            'mexico': '🇲🇽', 'sudafrica': '🇿🇦', 'corea del sur': '🇰🇷', 'republica checa': '🇨🇿',
+            'canada': '🇨🇦', 'bosnia y herzegovina': '🇧🇦', 'catar': '🇶🇦', 'suiza': '🇨🇭',
+            'brasil': '🇧🇷', 'marruecos': '🇲🇦', 'haiti': '🇭🇹', 'escocia': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+            'estados unidos': '🇺🇸', 'paraguay': '🇵🇾', 'australia': '🇦🇺', 'turquia': '🇹🇷',
+            'alemania': '🇩🇪', 'curazao': '🇨🇼', 'costa de marfil': '🇨🇮', 'ecuador': '🇪🇨',
+            'paises bajos': '🇳🇱', 'japon': '🇯🇵', 'tunez': '🇹🇳', 'suecia': '🇸🇪',
+            'belgica': '🇧🇪', 'egipto': '🇪🇬', 'iran': '🇮🇷', 'nueva zelanda': '🇳🇿',
+            'espana': '🇪🇸', 'cabo verde': '🇨🇻', 'arabia saudita': '🇸🇦', 'uruguay': '🇺🇾',
+            'francia': '🇫🇷', 'senegal': '🇸🇳', 'noruega': '🇳🇴', 'irak': '🇮🇶',
+            'argentina': '🇦🇷', 'argelia': '🇩🇿', 'austria': '🇦🇹', 'jordania': '🇯🇴',
+            'portugal': '🇵🇹', 'uzbekistan': '🇺🇿', 'colombia': '🇨🇴', 'rd congo': '🇨🇩',
+            'inglaterra': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'croacia': '🇭🇷', 'ghana': '🇬🇭', 'panama': '🇵🇦'
+        };
+        const getBandera = (pais) => BANDERAS[normalizeName(pais)] || '🏳️';
+
         const getMatchTimestamp = (fechaStr, horaStr) => {
             if (!fechaStr || !horaStr) return Infinity;
             let str = String(fechaStr).toLowerCase().replace(/ de /g, ' ').replace(/,/g, '');
@@ -168,13 +168,16 @@
             
             const [activeTab, setActiveTab] = React.useState('grupos');
             const [visibilidad, setVisibilidad] = React.useState({ grupos: true, ranking: true, eliminatoria: true, ranking_eliminatoria: true });
-            const [premios, setPremios] = React.useState({ mxnFase1: "$4,000", crcFase1: "100,000", mxnFase2: "$10,000", crcFase2: "250,000" });
-            const [inputPremios, setInputPremios] = React.useState({ mxnFase1: "$4,000", crcFase1: "100,000", mxnFase2: "$10,000", crcFase2: "250,000" });
+            
+            // Estructura de doble premio
+            const [premios, setPremios] = React.useState({ mxnFase1: "$4,000", crcFase1: "100,000", mxnFase2: "$10,000", crcFase2: "250,000", mxn2Lugar: "$2,000", crc2Lugar: "50,000" });
+            const [inputPremios, setInputPremios] = React.useState({ mxnFase1: "$4,000", crcFase1: "100,000", mxnFase2: "$10,000", crcFase2: "250,000", mxn2Lugar: "$2,000", crc2Lugar: "50,000" });
             
             const [isLoading, setIsLoading] = React.useState(true);
             const [isLoginExiting, setIsLoginExiting] = React.useState(false);
             const [showAdminModal, setShowAdminModal] = React.useState(false);
             const [isSyncing, setIsSyncing] = React.useState(false);
+            const [exactScores, setExactScores] = React.useState({});
             
             const [spyUser, setSpyUser] = React.useState(null); 
             const [spySearchTerm, setSpySearchTerm] = React.useState("");
@@ -220,18 +223,27 @@
                 return aciertos;
             };
 
-            // CÁLCULO PUNTOS FASE 2 (Empezando desde cero)
+            // CÁLCULO PUNTOS FASE 2 (Escalonado y Marcador Exacto)
             const calcularPuntosFase2 = (jugador) => {
                 if (!partidos || partidos.length === 0) return 0;
                 let aciertos = 0;
                 const picks = jugador.picks || {};
                 partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).forEach(p => {
                     if (p.estado === 'finalizado') {
-                        const suPick = picks[p.id];
+                        let suPick = picks[p.id];
                         if (suPick) {
                             let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
                             let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
-                            if (resultadoReal === suPick) aciertos++;
+                            
+                            let isSemi = p.grupo === 'Semifinales';
+                            let isFinal = p.grupo === 'Gran Final';
+                            let ptsMax = isFinal ? 3 : (isSemi ? 2 : 1);
+                            
+                            let resPick = typeof suPick === 'object' ? suPick.res : suPick;
+                            let esExacto = typeof suPick === 'object' && Number(suPick.gl) === gl && Number(suPick.gv) === gv;
+
+                            if (esExacto) aciertos += ptsMax;
+                            else if (resPick === resultadoReal) aciertos += 1;
                         }
                     }
                 });
@@ -275,10 +287,12 @@
                         const data = doc.data();
                         setModoEspiaActivo(data.modo_espia_activo || false);
                         const configPremios = {
-                            mxnFase1: data.premios?.mxnFase1 || data.premio_mxn || "$4,000",
-                            crcFase1: data.premios?.crcFase1 || data.premio_crc || "100,000",
+                            mxnFase1: data.premios?.mxnFase1 || "$4,000",
+                            crcFase1: data.premios?.crcFase1 || "100,000",
                             mxnFase2: data.premios?.mxnFase2 || "$10,000",
-                            crcFase2: data.premios?.crcFase2 || "250,000"
+                            crcFase2: data.premios?.crcFase2 || "250,000",
+                            mxn2Lugar: data.premios?.mxn2Lugar || "$2,000",
+                            crc2Lugar: data.premios?.crc2Lugar || "50,000"
                         };
                         setPremios(configPremios); setInputPremios(configPremios);
                         if (data.visibilidad) setVisibilidad(data.visibilidad);
@@ -310,11 +324,29 @@
                 if (isFaseGrupos && profile.locked) return; // Bloqueo global solo aplica a Fase 1
                 
                 const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
-                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return; // Bloqueo de 1 minuto
+                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return; // Bloqueo individual de 1 minuto
 
                 const picksActuales = profile.picks || {};
                 const nuevoPick = { ...picksActuales, [partidoId]: tendencia };
                 await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
+            };
+
+            const guardarMarcadorExacto = async (partidoId, gl, gv) => {
+                if (!profile || !db) return;
+                const partido = partidos.find(p => p.id === partidoId);
+                const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
+                if (currentTime >= matchTime - 60000 || partido.estado === 'finalizado') return;
+                
+                let numL = Number(gl); let numV = Number(gv);
+                if(isNaN(numL) || isNaN(numV)) return;
+                
+                let res = numL > numV ? 'local' : (numL < numV ? 'visitante' : 'empate');
+                let tendenciaObj = { res, gl: numL, gv: numV };
+                
+                const picksActuales = profile.picks || {};
+                const nuevoPick = { ...picksActuales, [partidoId]: tendenciaObj };
+                await db.collection('usuarios').doc(user.uid).update({ picks: nuevoPick });
+                alert("¡Marcador exacto guardado!");
             };
 
             const handleBloquearQuiniela = async () => {
@@ -330,6 +362,22 @@
             const handleToggleVisibilidad = async (tabId, isChecked) => { if (!db) return; const nuevaVisibilidad = { ...visibilidad, [tabId]: isChecked }; setVisibilidad(nuevaVisibilidad); await db.collection('sistema').doc('configuracion').set({ visibilidad: nuevaVisibilidad }, { merge: true }); };
             const handleActualizarPremios = async () => { if (!db) return; await db.collection('sistema').doc('configuracion').set({ premios: inputPremios }, { merge: true }); alert("Premios actualizados en los rankings."); };
             const handleGuardarResultadoManual = async (partidoId) => { if (!db) return; const inputL = document.getElementById(`golesL_${partidoId}`).value; const inputV = document.getElementById(`golesV_${partidoId}`).value; if(inputL === '' || inputV === '') return; await db.collection('partidos').doc(partidoId).update({ golesL_real: Number(inputL), golesV_real: Number(inputV), estado: 'finalizado' }); };
+            
+            const handleAsignarLlave = async (partidoId) => {
+                if (!db) return;
+                const loc = document.getElementById(`admin_loc_${partidoId}`).value;
+                const vis = document.getElementById(`admin_vis_${partidoId}`).value;
+                if(!loc || !vis) return;
+                await db.collection('partidos').doc(partidoId).update({ local: loc, visitante: vis });
+                alert("Llave actualizada");
+            };
+
+            const handleMarcarPenales = async (partidoId, avanza) => {
+                if (!db) return;
+                await db.collection('partidos').doc(partidoId).update({ avanza });
+                alert("Avanza registrado");
+            }
+
             const handleDeleteUser = async (userId, userName) => { if (!db) return; if(confirm(`¿ELIMINAR al jugador "${userName}"?`)) { await db.collection('usuarios').doc(userId).delete(); if (user && userId === user.uid) { safeStorage.remove('quiniela_user_uid'); window.location.reload(); } } };
             const handleUnlockUser = async (userId, userName) => { if (!db) return; if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) { await db.collection('usuarios').doc(userId).update({ locked: false }); } };
 
@@ -341,7 +389,6 @@
                     const stagesEliminatoria = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"];
 
                     data.matches.forEach(match => {
-                        // Sincronizar goles finalizados
                         if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
                             const apiHomeTranslated = traducirNombre(match.homeTeam.name); const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             const apiGolesL = Number(match.score.fullTime.home); const apiGolesV = Number(match.score.fullTime.away);
@@ -357,7 +404,6 @@
                                 }
                             } 
                         }
-                        // Insertar llaves oficiales Fase 2 si no existen
                         if (stagesEliminatoria.includes(match.stage)) {
                             const refId = `elim_${match.id}`;
                             const existe = partidosRef.current.find(p => p.id === refId);
@@ -379,6 +425,7 @@
                     });
                     if (actualizados > 0 || insertadosFase2 > 0) {
                         await batch.commit();
+                        await db.collection('sistema').doc('configuracion').update({ log_sync: `Última sync con éxito: ${new Date().toLocaleTimeString()} - ${actualizados} act / ${insertadosFase2} nuevas`});
                         if(!silencioso) alert(`Éxito. Se actualizaron ${actualizados} partidos y se insertaron ${insertadosFase2} llaves nuevas.`);
                     } else { if(!silencioso) alert("La API no detectó partidos nuevos ni llaves pendientes."); }
                 } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
@@ -407,21 +454,60 @@
                 const intervalo = setInterval(checarSincronizacionAutomatica, 60000); return () => clearInterval(intervalo);
             }, [partidos.length, user]);
 
+            // LOGICA ESPÍA CONTEXTUAL
             let spyStats = { aciertos: 0, fallos: 0, pendientes: 0 }; let spyPartidosHoy = []; let spyPartidosResto = [];
-            if (spyUser) {
-                const calcularAciertosEspia = (jugador) => { let aciertos = 0; partidos.forEach(p => { if (p.estado === 'finalizado') { const suPick = jugador.picks && jugador.picks[p.id]; if (suPick) { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); let res = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate'); if (res === suPick) aciertos++; } } }); return aciertos; };
-                spyStats.aciertos = calcularAciertosEspia(spyUser);
-                partidos.forEach(p => {
-                    const pick = spyUser.picks && spyUser.picks[p.id];
-                    if (pick) { if (p.estado === 'finalizado') { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); if (((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) !== pick)) spyStats.fallos++; } else { spyStats.pendientes++; } }
+            if (spyUser && spyUser.data) {
+                const targetJugador = spyUser.data;
+                const targetPhase = spyUser.phase; // 'fase1' o 'fase2'
+                
+                const partidosDelEspia = partidos.filter(p => {
+                    const isFase1 = String(p.grupo).toLowerCase().includes('grupo');
+                    return targetPhase === 'fase1' ? isFase1 : !isFase1;
                 });
 
-                const spyPartidosFiltrados = partidos.filter(p => {
-                    const pick = spyUser.picks && spyUser.picks[p.id]; if (!pick) return false;
+                const calcularAciertosEspia = (jugador) => { 
+                    let aciertos = 0; 
+                    partidosDelEspia.forEach(p => { 
+                        if (p.estado === 'finalizado') { 
+                            const suPick = jugador.picks && jugador.picks[p.id]; 
+                            if (suPick) { 
+                                let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); 
+                                let res = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate'); 
+                                let resPick = typeof suPick === 'object' ? suPick.res : suPick;
+                                if (res === resPick) aciertos++; // Simply correct tendency
+                            } 
+                        } 
+                    }); 
+                    return aciertos; 
+                };
+                
+                spyStats.aciertos = calcularAciertosEspia(targetJugador);
+                
+                partidosDelEspia.forEach(p => {
+                    const pick = targetJugador.picks && targetJugador.picks[p.id];
+                    if (pick) { 
+                        if (p.estado === 'finalizado') { 
+                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); 
+                            let resPick = typeof pick === 'object' ? pick.res : pick;
+                            if (((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) !== resPick)) spyStats.fallos++; 
+                        } else { 
+                            spyStats.pendientes++; 
+                        } 
+                    }
+                });
+
+                const spyPartidosFiltrados = partidosDelEspia.filter(p => {
+                    const pick = targetJugador.picks && targetJugador.picks[p.id]; if (!pick) return false;
                     const buscar = spySearchTerm.toLowerCase(); if (!p.local.toLowerCase().includes(buscar) && !p.visitante.toLowerCase().includes(buscar)) return false;
-                    let esCorrecto = null; if (p.estado === 'finalizado') { let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === pick); }
+                    let esCorrecto = null; 
+                    if (p.estado === 'finalizado') { 
+                        let gl = Number(p.golesL_real); let gv = Number(p.golesV_real); 
+                        let resPick = typeof pick === 'object' ? pick.res : pick;
+                        esCorrecto = ((gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate')) === resPick); 
+                    }
                     if (spyFilter === 'aciertos' && esCorrecto !== true) return false; if (spyFilter === 'fallos' && esCorrecto !== false) return false; return true;
                 });
+                
                 spyPartidosHoy = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) === hoyParseado); spyPartidosResto = spyPartidosFiltrados.filter(p => parseFechaEs(p.fecha) !== hoyParseado);
                 spyPartidosResto.sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora)); spyPartidosHoy.sort((a, b) => parseInt(a.hora) - parseInt(b.hora));
             }
@@ -449,7 +535,6 @@
             const rankingFase1 = Object.values(predicciones).filter(j => j.locked).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase1(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
             const rankingFase2 = Object.values(predicciones).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase2(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
 
-            // FUNCIÓN HERO MATCH (Reloj)
             const renderCountdown = (targetTime) => {
                 const diff = targetTime - currentTime;
                 if (diff <= 0) return "CERRADO";
@@ -464,9 +549,13 @@
             const heroMatch = pendingKnockout.length > 0 ? pendingKnockout[0] : null;
 
             const construirFilaSpy = (partido, esAncladoHoy = false) => {
-                const suPick = spyUser.picks && spyUser.picks[partido.id]; let esCorrecto = null;
+                const suPickRaw = spyUser.data.picks && spyUser.data.picks[partido.id]; 
+                const suPick = typeof suPickRaw === 'object' ? suPickRaw.res : suPickRaw;
+                const pickText = typeof suPickRaw === 'object' ? `${suPickRaw.gl} - ${suPickRaw.gv} (${suPick})` : (suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Pendiente');
+                
+                let esCorrecto = null;
                 const isLockedByTime = currentTime >= getMatchTimestamp(partido.fecha, partido.hora) - 60000;
-                const pickVisible = isLockedByTime || partido.estado === 'finalizado' || profile.id === spyUser.id; // Evitar trampa
+                const pickVisible = isLockedByTime || partido.estado === 'finalizado' || profile.id === spyUser.data.id; 
                 
                 if (partido.estado === 'finalizado') { let gl = Number(partido.golesL_real); let gv = Number(partido.golesV_real); let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate'); esCorrecto = (resultadoReal === suPick); }
                 let estiloContenedor = "bg-black/30 border-white/10"; let estiloBadge = "bg-[#C5A97D] text-[#53121F]";
@@ -478,7 +567,7 @@
                         <div className="flex items-center gap-2 w-1/2 md:gap-3"><span className="text-2xl drop-shadow-md">{getBandera(partido.local)}</span><span className="text-[10px] text-white/40 font-black italic">VS</span><span className="text-2xl drop-shadow-md">{getBandera(partido.visitante)}</span></div>
                         <div className="w-1/2 flex justify-end">
                             {pickVisible ? (
-                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${estiloBadge}`}>{suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Pendiente'}</span>
+                                <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl text-center shadow-inner flex items-center gap-1 ${estiloBadge}`}>{pickText}</span>
                             ) : (
                                 <span className="text-[9px] font-black uppercase px-3 py-2 rounded-xl text-white/50 bg-black/50 border border-white/5 flex items-center gap-1"><Icon name="eye-off" size={10}/> Oculto 🔒</span>
                             )}
@@ -491,15 +580,18 @@
 
             return (
                 <div className="min-h-screen pb-24 relative animate-fade-in w-full">
+                    
+                    {/* Botón Flotante Administrador */}
+                    <button onClick={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña Admin:"); if(pwd === "26zorras27") setShowAdminModal(true); }} className="fixed bottom-6 right-6 z-50 bg-[#00623B] text-[#C5A97D] border-2 border-[#C5A97D]/50 p-4 rounded-full shadow-[0_5px_20px_rgba(0,0,0,0.6)] active:scale-95 transition-all flex items-center justify-center">
+                        <span className="text-xl">⚙️</span>
+                    </button>
+
                     <div className="bg-[#00623B] pb-4 shadow-lg sticky top-0 z-40 w-full border-b border-[#C5A97D]/30">
                         <div className="flex justify-between items-center max-w-6xl mx-auto pt-4 w-full px-4">
                             <h1 className="font-display font-black text-2xl italic flex items-center gap-1"><span className="text-white drop-shadow-md">FIFA</span><span className="bg-white text-[#00623B] px-2 py-0.5 rounded-md shadow-inner">26</span></h1>
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30 shadow-sm"><span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span></div>
-                                <button onClick={(e) => { e.preventDefault(); const pwd = window.prompt("Contraseña:"); if(pwd === "26zorras27") setShowAdminModal(true); }} className="bg-black/30 text-[#C5A97D] border border-[#C5A97D]/30 p-2.5 rounded-full shadow-md active:scale-95 transition-all flex items-center justify-center"><Icon name="search" size={16} className="hidden" />⚙️</button>
-                            </div>
+                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-[#C5A97D]/30 shadow-sm"><span className="font-bold text-sm uppercase text-[#C5A97D]">{profile.username}</span></div>
                         </div>
-                        <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2 px-4">
+                        <div className="flex gap-2 mt-6 max-w-6xl mx-auto overflow-x-auto hide-scrollbar pb-2 px-4 scroll-smooth">
                             {visibilidad.grupos && <button onClick={() => setActiveTab('grupos')} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'grupos' ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>Fase de Grupos</button>}
                             {visibilidad.ranking && <button onClick={() => setActiveTab('ranking')} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'ranking' ? 'bg-white text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>Ranking Grupos</button>}
                             {visibilidad.eliminatoria && <button onClick={() => setActiveTab('eliminatoria')} className={`px-5 py-2.5 rounded-full font-black text-sm whitespace-nowrap transition-all flex-shrink-0 ${activeTab === 'eliminatoria' ? 'bg-[#C5A97D] text-[#53121F] shadow-lg scale-105' : 'bg-black/20 text-white/80'}`}>Fase Eliminatoria</button>}
@@ -551,25 +643,40 @@
 
                         {activeTab === 'eliminatoria' && (
                             <div className="animate-fade-in">
-                                {heroMatch && (
-                                    <div className="bg-gradient-to-r from-[#D31145] to-[#53121F] p-1 rounded-3xl mb-10 shadow-[0_20px_50px_rgba(211,17,69,0.3)] transform transition-transform">
-                                        <div className="bg-[#021A10] p-6 md:p-10 rounded-[22px] flex flex-col items-center text-center relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A97D] opacity-10 rounded-full blur-3xl transform translate-x-20 -translate-y-20"></div>
-                                            <div className="bg-[#D31145] text-white text-[10px] px-3 py-1 font-black uppercase tracking-widest rounded-full mb-6 border border-white/20 shadow-lg animate-pulse">Siguiente Partido</div>
-                                            <div className="flex items-center justify-center gap-4 w-full mb-8 relative z-10">
-                                                <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.local)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.local}</span></div>
-                                                <div className="flex flex-col items-center w-1/5"><span className="font-display font-black text-2xl md:text-4xl text-[#C5A97D]/50 italic mb-2">VS</span></div>
-                                                <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.visitante)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.visitante}</span></div>
+                                {heroMatch && (() => {
+                                    const heroMatchTime = getMatchTimestamp(heroMatch.fecha, heroMatch.hora);
+                                    const isHeroLocked = heroMatch.estado === 'finalizado' || currentTime >= heroMatchTime - 60000;
+                                    const heroPickRaw = profile.picks && profile.picks[heroMatch.id];
+                                    const heroPick = typeof heroPickRaw === 'object' ? heroPickRaw.res : heroPickRaw;
+                                    
+                                    return (
+                                        <div className="bg-gradient-to-r from-[#D31145] to-[#53121F] p-1 rounded-3xl mb-10 shadow-[0_20px_50px_rgba(211,17,69,0.3)] transform transition-transform">
+                                            <div className="bg-[#021A10] p-6 md:p-10 rounded-[22px] flex flex-col items-center text-center relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-64 h-64 bg-[#C5A97D] opacity-10 rounded-full blur-3xl transform translate-x-20 -translate-y-20"></div>
+                                                <div className="bg-[#D31145] text-white text-[10px] px-3 py-1 font-black uppercase tracking-widest rounded-full mb-6 border border-white/20 shadow-lg animate-pulse">Siguiente Partido</div>
+                                                <div className="flex items-center justify-center gap-4 w-full mb-6 relative z-10">
+                                                    <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.local)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.local}</span></div>
+                                                    <div className="flex flex-col items-center w-1/5"><span className="font-display font-black text-2xl md:text-4xl text-[#C5A97D]/50 italic mb-2">VS</span></div>
+                                                    <div className="flex flex-col items-center gap-2 w-2/5"><span className="text-6xl md:text-8xl drop-shadow-2xl">{getBandera(heroMatch.visitante)}</span><span className="font-black text-sm md:text-lg uppercase tracking-wide text-white">{heroMatch.visitante}</span></div>
+                                                </div>
+                                                <div className="font-display font-black text-4xl md:text-6xl text-[#C5A97D] tracking-tighter drop-shadow-lg tabular-nums mb-6">{renderCountdown(heroMatchTime)}</div>
+                                                
+                                                {/* Botones Interactivos Hero */}
+                                                <div className="flex w-full max-w-md gap-2 relative z-10">
+                                                    <button onClick={() => guardarTendencia(heroMatch.id, 'local')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'local' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Local</button>
+                                                    <button onClick={() => guardarTendencia(heroMatch.id, 'empate')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Empate</button>
+                                                    <button onClick={() => guardarTendencia(heroMatch.id, 'visitante')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'visitante' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Visita</button>
+                                                </div>
+                                                
+                                                <p className="text-[#C5A97D]/70 text-xs font-bold uppercase tracking-widest mt-4">{heroMatch.fecha} • {heroMatch.hora} Hrs</p>
                                             </div>
-                                            <div className="font-display font-black text-4xl md:text-6xl text-[#C5A97D] tracking-tighter drop-shadow-lg tabular-nums">{renderCountdown(getMatchTimestamp(heroMatch.fecha, heroMatch.hora))}</div>
-                                            <p className="text-[#C5A97D]/70 text-xs font-bold uppercase tracking-widest mt-2">{heroMatch.fecha} • {heroMatch.hora} Hrs</p>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
-                                <div className="bg-[#033B25] p-6 rounded-3xl border border-[#C5A97D]/30 flex flex-col mb-8 shadow-xl">
-                                    <h3 className="text-2xl font-display font-black text-[#C5A97D] text-center mb-2 uppercase tracking-widest">Regla de Oro (Fase 2)</h3>
-                                    <p className="text-sm text-white/90 font-bold text-center">Tu pronóstico es válido únicamente para los <span className="bg-[#D31145] px-2 py-0.5 rounded text-white font-black">90 Minutos</span> reglamentarios. Si crees que el juego se va a Tiempos Extra, debes elegir "Empate".</p>
+                                <div className="bg-[#033B25] p-8 md:p-10 rounded-3xl border border-[#C5A97D]/30 flex flex-col mb-10 shadow-xl">
+                                    <h3 className="text-2xl md:text-3xl font-display font-black text-[#C5A97D] text-center mb-4 uppercase tracking-widest leading-tight">Regla de Oro <br className="md:hidden" />(Fase 2)</h3>
+                                    <p className="text-base md:text-lg text-white/90 font-bold text-center leading-relaxed">Tu pronóstico es válido únicamente para los <span className="bg-[#D31145] px-2 py-0.5 rounded text-white font-black inline-block mt-1 mb-1 shadow-md">90 Minutos</span> reglamentarios. Si crees que el juego se va a Tiempos Extra, debes elegir "Empate".</p>
                                 </div>
 
                                 {partidosEliminatoria.length === 0 ? (
@@ -578,21 +685,36 @@
                                     eliminatoriasNombres.map(grupo => {
                                         const partidosDelGrupo = partidosEliminatoria.filter(p => p.grupo === grupo).sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
                                         if(partidosDelGrupo.length === 0) return null;
+                                        const isEspecial = grupo === 'Semifinales' || grupo === 'Gran Final';
+
                                         return (
                                             <div key={grupo} className="mb-12">
-                                                <h2 className="text-3xl font-display font-black text-white mb-6 border-b border-[#C5A97D]/30 pb-2 drop-shadow-md flex items-center gap-3"><Icon name="flame" className="text-[#C5A97D]"/>{grupo}</h2>
+                                                <div className="flex justify-between items-end mb-6 border-b border-[#C5A97D]/30 pb-2">
+                                                    <h2 className="text-3xl font-display font-black text-white drop-shadow-md flex items-center gap-3"><Icon name="flame" className="text-[#C5A97D]"/>{grupo}</h2>
+                                                    {isEspecial && <span className="text-[#C5A97D] font-black text-[10px] uppercase tracking-widest bg-[#C5A97D]/10 px-2 py-1 rounded">Pts Especiales</span>}
+                                                </div>
+                                                
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     {partidosDelGrupo.map(partido => {
-                                                        const miPick = profile.picks && profile.picks[partido.id];
+                                                        const miPickRaw = profile.picks && profile.picks[partido.id];
+                                                        const miPick = typeof miPickRaw === 'object' ? miPickRaw.res : miPickRaw;
+                                                        
                                                         const matchTime = getMatchTimestamp(partido.fecha, partido.hora);
                                                         const bloqueado = partido.estado === 'finalizado' || currentTime >= matchTime - 60000;
                                                         
                                                         return (
                                                             <div key={partido.id} className={`bg-[#021A10] border rounded-3xl p-5 flex flex-col relative overflow-hidden transition-all ${bloqueado ? 'border-white/10 opacity-90' : 'border-[#C5A97D]/40 shadow-[0_10px_30px_rgba(197,169,125,0.1)] hover:-translate-y-1'}`}>
+                                                                {partido.estado === 'finalizado' && partido.avanza && (
+                                                                    <div className="absolute top-0 right-0 bg-[#C5A97D] text-[#53121F] text-[9px] px-3 py-1 font-black uppercase tracking-widest rounded-bl-xl z-20 shadow-md">
+                                                                        Avanzó: {getBandera(partido[partido.avanza])} {partido[partido.avanza]}
+                                                                    </div>
+                                                                )}
+
                                                                 <div className="w-full flex justify-between items-center mb-4 border-b border-[#C5A97D]/10 pb-3">
                                                                     <div className="flex flex-col gap-1"><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="calendar" size={12}/> {partido.fecha}</div><div className="flex items-center gap-1 text-[#C5A97D] text-[10px] font-black tracking-widest uppercase"><Icon name="clock" size={12}/> {partido.hora}</div></div>
                                                                     {bloqueado ? <span className="bg-black/60 text-red-400 text-[9px] px-2.5 py-1.5 rounded-full font-black uppercase flex items-center gap-1 border border-red-900/50"><Icon name="lock" size={10}/> Cerrado</span> : <span className="bg-[#00623B]/30 text-green-400 text-[9px] px-2.5 py-1.5 rounded-full font-black uppercase flex items-center gap-1 border border-green-500/30 animate-pulse"><Icon name="unlock" size={10}/> Abierto</span>}
                                                                 </div>
+                                                                
                                                                 <div className="flex flex-col w-full gap-3 mt-2 relative z-10">
                                                                     <div className="flex items-center justify-between w-full gap-2">
                                                                         <button onClick={() => guardarTendencia(partido.id, 'local')} disabled={bloqueado} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${miPick === 'local' ? 'bg-[#C5A97D] border-transparent text-[#53121F] casino-glow scale-[1.02]' : 'bg-black/40 border-white/5 text-white/90'}`}><span className="text-4xl drop-shadow-md">{getBandera(partido.local)}</span><span className="font-black text-[10px] text-center leading-tight uppercase tracking-wide truncate w-full">{partido.local}</span></button>
@@ -601,6 +723,19 @@
                                                                     </div>
                                                                     <button onClick={() => guardarTendencia(partido.id, 'empate')} disabled={bloqueado} className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border flex items-center justify-center gap-2 ${miPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow' : 'bg-black/20 border-white/5 text-white/60'}`}>Empate <span className="text-[8px] bg-black/20 px-1.5 py-0.5 rounded opacity-70">90 MIN</span></button>
                                                                 </div>
+
+                                                                {isEspecial && (
+                                                                    <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4">
+                                                                        <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> Opcional: Acierta el Marcador Exacto</p>
+                                                                        <div className="flex gap-2 mb-3">
+                                                                            <input type="number" min="0" placeholder="0" id={`p_loc_${partido.id}`} defaultValue={typeof miPickRaw === 'object' ? miPickRaw.gl : ''} disabled={bloqueado} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                                            <input type="number" min="0" placeholder="0" id={`p_vis_${partido.id}`} defaultValue={typeof miPickRaw === 'object' ? miPickRaw.gv : ''} disabled={bloqueado} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                                        </div>
+                                                                        <button onClick={() => { const gl = document.getElementById(`p_loc_${partido.id}`).value; const gv = document.getElementById(`p_vis_${partido.id}`).value; if(gl !== '' && gv !== '') guardarMarcadorExacto(partido.id, gl, gv); }} disabled={bloqueado} className="w-full bg-[#00623B] border border-[#00623B] text-white font-black text-[10px] uppercase tracking-widest py-2 rounded-lg active:scale-95 transition-transform hover:bg-[#004e2f]">Guardar Marcador (Máx {grupo === 'Gran Final' ? '3' : '2'} Pts)</button>
+                                                                        <p className="text-[9px] text-white/50 text-center mt-2 font-bold leading-tight">Si sólo aciertas el ganador o empate te llevas 1 punto.</p>
+                                                                    </div>
+                                                                )}
+
                                                                 <div className="text-center mt-4"><span className="text-[8px] text-[#D31145] font-black uppercase tracking-widest bg-[#D31145]/10 px-2 py-1 rounded">Se bloquea 1 minuto antes</span></div>
                                                             </div>
                                                         )
@@ -615,38 +750,92 @@
 
                         {activeTab === 'ranking' && (
                             <div className="space-y-4 animate-fade-in pb-10">
-                                <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-xl overflow-hidden">
-                                    <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-1">Premio Fase 1</h2>
-                                    <div className="font-display font-black text-5xl md:text-7xl text-white tracking-tighter mb-0 leading-none">{premios.mxnFase1}<span className="text-2xl md:text-3xl ml-1">MXN</span></div>
-                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase mt-2">o {premios.crcFase1} CRC</div>
+                                <div className="panini-gradient p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-xl overflow-hidden flex flex-col md:flex-row items-center justify-center gap-6">
+                                    <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-[#C5A97D]/30 pb-6 md:pb-0 md:pr-6">
+                                        <h2 className="font-display font-black text-sm text-white/60 uppercase tracking-[0.3em] mb-1 flex items-center justify-center gap-2"><Icon name="crown" size={16} className="text-[#C5A97D]"/> 1er Lugar</h2>
+                                        <div className="font-display font-black text-5xl md:text-6xl text-[#C5A97D] tracking-tighter mb-0 leading-none">{premios.mxnFase1}<span className="text-2xl ml-1">MXN</span></div>
+                                        <div className="text-white/80 font-black text-sm uppercase mt-2">o {premios.crcFase1} CRC</div>
+                                    </div>
+                                    <div className="w-full md:w-1/2 md:pl-2">
+                                        <h2 className="font-display font-black text-xs text-white/40 uppercase tracking-[0.2em] mb-1">2do Lugar</h2>
+                                        <div className="font-display font-black text-3xl md:text-4xl text-white tracking-tighter mb-0 leading-none">{premios.mxn2Lugar}<span className="text-xl ml-1 text-white/50">MXN</span></div>
+                                        <div className="text-white/60 font-bold text-xs uppercase mt-1">o {premios.crc2Lugar} CRC</div>
+                                    </div>
                                 </div>
                                 {!(profile && profile.locked) && <div className="bg-red-900/40 border border-red-500/50 p-6 rounded-2xl text-center mb-6"><p className="text-white font-bold"><Icon name="alert-circle" className="inline mr-2 mb-1 text-red-400"/>Ve a Grupos y presiona "Guardar y Bloquear" para aparecer aquí.</p></div>}
                                 <div className="space-y-4">
-                                    {rankingFase1.map((jugador, idx) => (
-                                        <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.02] shadow-lg ${idx === 0 ? 'bg-gradient-to-r from-[#033B25] to-[#53121F] border-2 border-[#C5A97D]' : jugador.id === (profile && profile.id) ? 'bg-white text-black ring-4 ring-[#D31145]' : 'bg-[#033B25] border border-white/5 text-white'}`}>
-                                            <div className="flex items-center gap-4"><div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${idx === 0 ? 'text-[#C5A97D]' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-[#CD7F32]' : 'text-white/20 text-4xl'}`}>{idx + 1}</div><div><div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className="bg-[#D31145] text-white text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}</div><span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span></div></div>
-                                            <div className="text-right pr-2"><div className="font-display font-black text-4xl leading-none">{jugador.puntosCalculados}</div><div className="text-[10px] font-black tracking-widest uppercase mt-1">Puntos</div></div>
-                                        </div>
-                                    ))}
+                                    {rankingFase1.map((jugador, idx) => {
+                                        let bgClass = "bg-[#033B25] border border-white/5 text-white";
+                                        let numberColor = "text-white/20";
+                                        if(idx === 0) { bgClass = "bg-gradient-to-r from-yellow-700 to-yellow-900 border-2 border-yellow-400 scale-[1.02] shadow-[0_0_20px_rgba(250,204,21,0.3)]"; numberColor = "text-yellow-300"; }
+                                        else if (idx === 1) { bgClass = "bg-gradient-to-r from-gray-700 to-gray-800 border-2 border-gray-400 shadow-md"; numberColor = "text-gray-300"; }
+                                        else if (idx === 2) { bgClass = "bg-gradient-to-r from-orange-800 to-[#53121F] border-2 border-orange-500 shadow-md"; numberColor = "text-orange-400"; }
+                                        else if (jugador.id === (profile && profile.id)) { bgClass = "bg-white text-black ring-4 ring-[#D31145]"; }
+
+                                        return (
+                                            <div key={jugador.id} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser({data: jugador, phase: 'fase1'}); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all transform hover:scale-[1.01] ${bgClass}`}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${numberColor}`}>
+                                                        {idx === 0 ? <span className="flex flex-col items-center"><Icon name="crown" size={16} className="text-yellow-200 mb-[-10px] z-10"/>1</span> : idx + 1}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className={`${idx === 0 ? 'bg-black/50 text-white' : 'bg-[#D31145] text-white'} text-[10px] font-black px-2 py-0.5 rounded`}>TÚ</span>}</div>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-80"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right pr-2">
+                                                    <div className={`font-display font-black text-4xl leading-none ${idx === 0 ? 'text-white' : ''}`}>{jugador.puntosCalculados}</div>
+                                                    <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${idx === 0 ? 'text-yellow-200' : 'opacity-70'}`}>Puntos</div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'ranking_eliminatoria' && (
                             <div className="space-y-4 animate-fade-in pb-10">
-                                <div className="bg-[#021A10] p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-2xl overflow-hidden">
-                                    <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-2">Gran Premio Final</h2>
-                                    <div className="font-display font-black text-6xl md:text-7xl text-white tracking-tighter leading-none">{premios.mxnFase2}<span className="text-3xl ml-1">MXN</span></div>
-                                    <div className="text-[#C5A97D] font-black text-base md:text-lg uppercase mt-2">o {premios.crcFase2} CRC</div>
-                                    <div className="mt-4 inline-block bg-[#C5A97D]/20 border border-[#C5A97D]/40 text-[#C5A97D] text-[9px] px-3 py-1 font-black uppercase tracking-widest rounded-full">Puntos inician desde cero</div>
+                                <div className="bg-[#021A10] p-8 rounded-3xl text-center relative mb-10 border-4 border-[#C5A97D] shadow-2xl overflow-hidden flex flex-col md:flex-row items-center justify-center gap-6">
+                                    <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-[#C5A97D]/20 pb-6 md:pb-0 md:pr-6">
+                                        <h2 className="font-display font-black text-sm text-[#C5A97D] uppercase tracking-[0.3em] mb-2 flex items-center justify-center gap-2"><Icon name="crown" size={16} /> 1er Lugar</h2>
+                                        <div className="font-display font-black text-6xl md:text-7xl text-white tracking-tighter leading-none">{premios.mxnFase2}<span className="text-3xl ml-1 text-white/80">MXN</span></div>
+                                        <div className="text-[#C5A97D] font-black text-sm md:text-base uppercase mt-2">o {premios.crcFase2} CRC</div>
+                                    </div>
+                                    <div className="w-full md:w-1/2 md:pl-2">
+                                        <h2 className="font-display font-black text-xs text-white/40 uppercase tracking-[0.2em] mb-1">2do Lugar</h2>
+                                        <div className="font-display font-black text-3xl md:text-4xl text-white tracking-tighter mb-0 leading-none">{premios.mxn2Lugar}<span className="text-xl ml-1 text-white/50">MXN</span></div>
+                                        <div className="text-[#C5A97D]/70 font-bold text-xs uppercase mt-1">o {premios.crc2Lugar} CRC</div>
+                                    </div>
                                 </div>
+                                
                                 <div className="space-y-4">
-                                    {rankingFase2.map((jugador, idx) => (
-                                        <div key={`rk2-${jugador.id}`} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser(jugador); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all shadow-lg ${idx === 0 ? 'bg-gradient-to-br from-[#C5A97D] to-[#8C734A] text-[#53121F]' : jugador.id === profile?.id ? 'bg-[#53121F] text-white ring-2 ring-[#C5A97D]' : 'bg-black/40 border border-white/5 text-white'}`}>
-                                            <div className="flex items-center gap-4"><div className="w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl">{idx + 1}</div><div><div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className="bg-white text-black text-[10px] font-black px-2 py-0.5 rounded">TÚ</span>}</div><span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-70"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span></div></div>
-                                            <div className="text-right pr-2"><div className="font-display font-black text-5xl leading-none">{jugador.puntosCalculados}</div><div className="text-[10px] font-black tracking-widest uppercase mt-1">Pts 2da Fase</div></div>
-                                        </div>
-                                    ))}
+                                    {rankingFase2.map((jugador, idx) => {
+                                        let bgClass = "bg-black/40 border border-white/5 text-white";
+                                        let numberColor = "text-white/20";
+                                        if(idx === 0) { bgClass = "bg-gradient-to-br from-[#C5A97D] to-[#8C734A] text-[#53121F] scale-[1.02] shadow-[0_0_25px_rgba(197,169,125,0.4)]"; numberColor = "text-white/80"; }
+                                        else if (idx === 1) { bgClass = "bg-gradient-to-r from-gray-700 to-gray-800 border-2 border-gray-400 shadow-md"; numberColor = "text-gray-300"; }
+                                        else if (idx === 2) { bgClass = "bg-gradient-to-r from-orange-800 to-[#53121F] border-2 border-orange-500 shadow-md"; numberColor = "text-orange-400"; }
+                                        else if (jugador.id === profile?.id) { bgClass = "bg-[#53121F] text-white ring-2 ring-[#C5A97D]"; }
+
+                                        return (
+                                            <div key={`rk2-${jugador.id}`} onClick={() => { if (modoEspiaActivo || jugador.id === (profile && profile.id)) setSpyUser({data: jugador, phase: 'fase2'}); else alert("El Modo Espía está bloqueado."); }} className={`cursor-pointer p-4 rounded-3xl flex items-center justify-between transition-all hover:scale-[1.01] ${bgClass}`}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 shrink-0 flex items-center justify-center font-display font-black text-5xl md:text-6xl ${numberColor}`}>
+                                                        {idx === 0 ? <span className="flex flex-col items-center"><Icon name="crown" size={16} className="text-[#53121F] mb-[-10px] z-10"/>1</span> : idx + 1}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2"><span className="font-black text-xl uppercase truncate max-w-[140px] md:max-w-[200px]">{jugador.username}</span>{jugador.id === (profile && profile.id) && <span className={`${idx===0?'bg-[#53121F] text-white':'bg-white text-black'} text-[10px] font-black px-2 py-0.5 rounded`}>TÚ</span>}</div>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 opacity-80"><Icon name={modoEspiaActivo || jugador.id === (profile && profile.id) ? "eye" : "lock"} size={12} /> {modoEspiaActivo || jugador.id === (profile && profile.id) ? 'Toca para espiar' : 'Bloqueado 🔒'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right pr-2">
+                                                    <div className="font-display font-black text-5xl leading-none">{jugador.puntosCalculados}</div>
+                                                    <div className={`text-[10px] font-black tracking-widest uppercase mt-1 ${idx===0 ? 'text-[#53121F]/70' : 'opacity-60'}`}>Pts 2da Fase</div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -654,9 +843,9 @@
 
                     {spyUser && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
-                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl flex flex-col relative shadow-2xl h-full max-h-[85dvh] overflow-hidden">
+                            <div className="bg-[#033B25] border border-[#C5A97D]/50 rounded-3xl w-full max-w-2xl flex flex-col relative shadow-2xl h-[90dvh] max-h-[90dvh] overflow-hidden">
                                 <div className="sticky top-0 bg-[#033B25] z-20 border-b border-[#C5A97D]/20 px-4 py-4 md:px-6 md:py-5 shrink-0">
-                                    <div className="flex justify-between items-start mb-4"><h2 className="font-display font-black text-2xl text-white uppercase">Apuestas de <span className="text-[#C5A97D]">{spyUser.username}</span></h2><button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3"><Icon name="x" size={24} /></button></div>
+                                    <div className="flex justify-between items-start mb-4"><h2 className="font-display font-black text-2xl text-white uppercase leading-tight">Apuestas de <br className="md:hidden"/><span className="text-[#C5A97D]">{spyUser.data.username}</span></h2><button onClick={handleCloseSpy} className="text-[#C5A97D] bg-black/40 rounded-full p-3 ml-2"><Icon name="x" size={24} /></button></div>
                                     <div className="grid grid-cols-3 gap-2 mb-4">
                                         <div className="bg-green-900/40 border border-green-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-green-400 leading-none">{spyStats.aciertos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-green-200 mt-1">Aciertos</span></div>
                                         <div className="bg-red-900/40 border border-red-500/50 rounded-xl p-2 flex flex-col items-center justify-center"><span className="text-xl md:text-2xl font-black text-red-400 leading-none">{spyStats.fallos}</span><span className="text-[9px] md:text-[10px] uppercase font-bold text-red-200 mt-1">Fallos</span></div>
@@ -689,10 +878,10 @@
 
                     {showAdminModal && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[999] flex items-center justify-center p-4">
-                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative flex flex-col h-full max-h-[85dvh] overflow-hidden">
+                            <div className="bg-[#53121F] border-2 border-[#C5A97D] p-6 rounded-3xl max-w-md w-full relative flex flex-col h-[90dvh] max-h-[90dvh] overflow-hidden shadow-[0_0_50px_rgba(197,169,125,0.2)]">
                                 <button onClick={() => setShowAdminModal(false)} className="absolute top-4 right-4 text-white/50 bg-black/20 rounded-full p-2 z-10"><Icon name="x" size={24} /></button>
-                                <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4 shrink-0">Panel de Control</h2>
-                                <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar touch-pan pb-20">
+                                <h2 className="font-display font-black text-2xl text-white mb-6 border-b border-[#C5A97D]/20 pb-4 shrink-0 flex items-center gap-2"><Icon name="target" /> Panel de Control</h2>
+                                <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar touch-pan pb-10">
                                     <div className="bg-[#033B25] p-5 rounded-2xl border border-[#C5A97D]/30 shadow-lg">
                                         <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Visibilidad Pestañas</p>
                                         <div className="space-y-3">
@@ -705,21 +894,47 @@
                                         </div>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Sincronización Avanzada (Fase 2)</p>
-                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"><Icon name="clock" size={16}/> Sincronizar Api & Llaves</button>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Sincronización Avanzada</p>
+                                        <button onClick={() => handleSyncAPI(false)} disabled={isSyncing} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl mb-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"><Icon name="clock" size={16}/> Sincronizar API Oficial</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-4 font-black uppercase tracking-widest">Configuración Premios</p>
-                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase">Premio Fase 1</h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase1} onChange={e => setInputPremios({...inputPremios, mxnFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase1} onChange={e => setInputPremios({...inputPremios, crcFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
-                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase">Gran Premio Final</h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">MXN</label><input type="text" value={inputPremios.mxnFase2} onChange={e => setInputPremios({...inputPremios, mxnFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">Colones</label><input type="text" value={inputPremios.crcFase2} onChange={e => setInputPremios({...inputPremios, crcFase2: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
+                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase">Fase 1</h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">1er MXN</label><input type="text" value={inputPremios.mxnFase1} onChange={e => setInputPremios({...inputPremios, mxnFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-white/60 font-black uppercase w-1/3">1er CRC</label><input type="text" value={inputPremios.crcFase1} onChange={e => setInputPremios({...inputPremios, crcFase1: e.target.value})} className="w-2/3 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
+                                        <div className="mb-4 p-3 bg-black/40 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-white mb-2 uppercase flex items-center gap-1">Fase Final </h4><div className="space-y-2"><div className="flex justify-between items-center"><label className="text-[10px] text-yellow-500/80 font-black uppercase w-1/3">1er MXN</label><input type="text" value={inputPremios.mxnFase2} onChange={e => setInputPremios({...inputPremios, mxnFase2: e.target.value})} className="w-2/3 bg-black/50 border border-yellow-500/30 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-yellow-500/80 font-black uppercase w-1/3">1er CRC</label><input type="text" value={inputPremios.crcFase2} onChange={e => setInputPremios({...inputPremios, crcFase2: e.target.value})} className="w-2/3 bg-black/50 border border-yellow-500/30 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="h-px bg-white/10 my-2"></div><div className="flex justify-between items-center"><label className="text-[10px] text-gray-400 font-black uppercase w-1/3">2do MXN</label><input type="text" value={inputPremios.mxn2Lugar} onChange={e => setInputPremios({...inputPremios, mxn2Lugar: e.target.value})} className="w-2/3 bg-black/50 border border-gray-500/30 rounded-lg px-2 py-1.5 text-white text-xs" /></div><div className="flex justify-between items-center"><label className="text-[10px] text-gray-400 font-black uppercase w-1/3">2do CRC</label><input type="text" value={inputPremios.crc2Lugar} onChange={e => setInputPremios({...inputPremios, crc2Lugar: e.target.value})} className="w-2/3 bg-black/50 border border-gray-500/30 rounded-lg px-2 py-1.5 text-white text-xs" /></div></div></div>
                                         <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase tracking-widest active:scale-95 transition-transform">Guardar Premios</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Carga Manual Rápida</p>
-                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-2 touch-pan">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Asignación Manual de Llaves</p>
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan">
+                                            {partidosOrdenadosAdmin.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).map(p => (
+                                                <div key={'admin-llave-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
+                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input type="text" id={`admin_loc_${p.id}`} defaultValue={p.local} placeholder="Local" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs" />
+                                                        <span className="text-[10px] italic opacity-50">VS</span>
+                                                        <input type="text" id={`admin_vis_${p.id}`} defaultValue={p.visitante} placeholder="Visita" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs" />
+                                                    </div>
+                                                    <button onClick={() => handleAsignarLlave(p.id)} className="w-full bg-[#D31145]/80 text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-colors hover:bg-[#D31145]">Cargar Nombres Reales</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados Manuales y Penales</p>
+                                        <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan">
                                             {partidosOrdenadosAdmin.map(p => (
-                                                <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10"><div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div><div className="flex items-center justify-between w-full"><span className="text-xs font-bold w-1/3 truncate text-right pr-2">{p.local}</span><div className="flex items-center gap-1"><input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" /><span className="text-xs text-white/50 font-bold">-</span><input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black" /></div><span className="text-xs font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span></div><button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1 transition-colors active:bg-green-700">Cerrar y Guardar</button></div>
+                                                <div key={'admin-load-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
+                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div>
+                                                    <div className="flex items-center justify-between w-full"><span className="text-[10px] font-bold w-1/3 truncate text-right pr-2">{p.local}</span><div className="flex items-center gap-1"><input type="number" min="0" defaultValue={p.golesL_real !== null && p.golesL_real !== undefined ? p.golesL_real : ''} id={`golesL_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black outline-none" /><span className="text-xs text-white/50 font-bold">-</span><input type="number" min="0" defaultValue={p.golesV_real !== null && p.golesV_real !== undefined ? p.golesV_real : ''} id={`golesV_${p.id}`} className="w-10 bg-black/50 border border-[#C5A97D]/50 text-center text-white rounded text-xs py-1.5 font-black outline-none" /></div><span className="text-[10px] font-bold w-1/3 truncate text-left pl-2">{p.visitante}</span></div>
+                                                    <button onClick={() => handleGuardarResultadoManual(p.id)} className="w-full bg-[#00623B] text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase mt-1 transition-colors hover:bg-green-700">Cerrar y Guardar Marcador</button>
+                                                    {!String(p.grupo).toLowerCase().includes('grupo') && (
+                                                        <div className="flex gap-2 mt-1">
+                                                            <button onClick={() => handleMarcarPenales(p.id, 'local')} className="flex-1 bg-yellow-600/30 border border-yellow-500/50 text-yellow-400 py-1 rounded text-[8px] font-bold">Avanza Loc</button>
+                                                            <button onClick={() => handleMarcarPenales(p.id, 'visitante')} className="flex-1 bg-yellow-600/30 border border-yellow-500/50 text-yellow-400 py-1 rounded text-[8px] font-bold">Avanza Vis</button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
