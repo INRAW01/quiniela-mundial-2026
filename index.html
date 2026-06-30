@@ -389,21 +389,35 @@
                     const stagesEliminatoria = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"];
 
                     data.matches.forEach(match => {
-                        if (match.status === 'FINISHED' && match.score && match.score.fullTime && match.score.fullTime.home !== null && match.score.fullTime.away !== null) { 
-                            const apiHomeTranslated = traducirNombre(match.homeTeam.name); const apiAwayTranslated = traducirNombre(match.awayTeam.name);
-                            const apiGolesL = Number(match.score.fullTime.home); const apiGolesV = Number(match.score.fullTime.away);
-                            const matchDirecto = partidosRef.current.find(p => {
-                                const dbLoc = normalizeName(p.local); const dbVis = normalizeName(p.visitante);
-                                return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
-                            });
-                            if (matchDirecto) {
-                                let finalGolesL = apiGolesL; let finalGolesV = apiGolesV;
-                                if (normalizeName(matchDirecto.local) === apiAwayTranslated) { finalGolesL = apiGolesV; finalGolesV = apiGolesL; }
-                                if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== finalGolesL || matchDirecto.golesV_real !== finalGolesV) {
-                                    batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: finalGolesL, golesV_real: finalGolesV, estado: 'finalizado' }); actualizados++;
-                                }
-                            } 
+                        // Verificamos que el partido haya finalizado y tenga score
+                        if (match.status === 'FINISHED' && match.score) {
+                            // REGLA 90 MINUTOS: Priorizamos regularTime. Si no está disponible, usamos fullTime como respaldo.
+                            const apiGolesL_raw = match.score.regularTime?.home ?? match.score.fullTime?.home;
+                            const apiGolesV_raw = match.score.regularTime?.away ?? match.score.fullTime?.away;
+
+                            if (apiGolesL_raw !== null && apiGolesL_raw !== undefined && apiGolesV_raw !== null && apiGolesV_raw !== undefined) { 
+                                const apiHomeTranslated = traducirNombre(match.homeTeam.name); 
+                                const apiAwayTranslated = traducirNombre(match.awayTeam.name);
+                                const apiGolesL = Number(apiGolesL_raw); 
+                                const apiGolesV = Number(apiGolesV_raw);
+                                
+                                const matchDirecto = partidosRef.current.find(p => {
+                                    const dbLoc = normalizeName(p.local); const dbVis = normalizeName(p.visitante);
+                                    return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
+                                });
+                                
+                                if (matchDirecto) {
+                                    let finalGolesL = apiGolesL; let finalGolesV = apiGolesV;
+                                    // Invertir si el local en la base de datos es el visitante en la API
+                                    if (normalizeName(matchDirecto.local) === apiAwayTranslated) { finalGolesL = apiGolesV; finalGolesV = apiGolesL; }
+                                    
+                                    if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== finalGolesL || matchDirecto.golesV_real !== finalGolesV) {
+                                        batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: finalGolesL, golesV_real: finalGolesV, estado: 'finalizado' }); actualizados++;
+                                    }
+                                } 
+                            }
                         }
+
                         if (stagesEliminatoria.includes(match.stage)) {
                             const refId = `elim_${match.id}`;
                             const existe = partidosRef.current.find(p => p.id === refId);
@@ -423,12 +437,19 @@
                             }
                         }
                     });
+                    
                     if (actualizados > 0 || insertadosFase2 > 0) {
                         await batch.commit();
                         await db.collection('sistema').doc('configuracion').update({ log_sync: `Última sync con éxito: ${new Date().toLocaleTimeString()} - ${actualizados} act / ${insertadosFase2} nuevas`});
                         if(!silencioso) alert(`Éxito. Se actualizaron ${actualizados} partidos y se insertaron ${insertadosFase2} llaves nuevas.`);
-                    } else { if(!silencioso) alert("La API no detectó partidos nuevos ni llaves pendientes."); }
-                } catch (error) { console.error(error); } finally { if (!silencioso) setIsSyncing(false); }
+                    } else { 
+                        if(!silencioso) alert("La API no detectó partidos nuevos ni llaves pendientes."); 
+                    }
+                } catch (error) { 
+                    console.error(error); 
+                } finally { 
+                    if (!silencioso) setIsSyncing(false); 
+                }
             };
 
             const ordenarPartidosEspecial = (listaPartidos) => {
@@ -943,23 +964,7 @@
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>
-                                        {Object.values(predicciones).map(j => (
-                                            <div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2">
-                                                <span className="font-bold text-xs uppercase text-white flex items-center gap-1">
-                                                    {j.locked ? '🔒' : '🔓'} {j.paseEspecial ? '⭐' : ''} {j.username}
-                                                </span>
-                                                <div className="flex gap-2 flex-wrap justify-end">
-                                                    <button onClick={() => handleTogglePaseEspecial(j.id, j.paseEspecial, j.username)} className={`${j.paseEspecial ? 'bg-yellow-600' : 'bg-gray-600'} text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform`}>
-                                                        {j.paseEspecial ? 'Quitar Pase' : 'Dar Pase'}
-                                                    </button>
-                                                    {j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}
-                                                    <button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Gestión de Usuarios</p>{Object.values(predicciones).map(j => (<div key={j.id} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-white/5 mb-2"><span className="font-bold text-xs uppercase text-white flex items-center gap-1">{j.locked ? '🔒' : '🔓'} {j.paseEspecial ? '⭐' : ''} {j.username}</span><div className="flex gap-2 flex-wrap justify-end"><button onClick={() => handleTogglePaseEspecial(j.id, j.paseEspecial, j.username)} className={`${j.paseEspecial ? 'bg-yellow-600' : 'bg-gray-600'} text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform`}>{j.paseEspecial ? 'Quitar Pase' : 'Dar Pase'}</button>{j.locked && <button onClick={() => handleUnlockUser(j.id, j.username)} className="bg-[#00623B] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Desbloquear</button>}<button onClick={() => handleDeleteUser(j.id, j.username)} className="bg-[#D31145] text-white px-2 py-1 rounded text-[10px] font-black active:scale-95 transition-transform">Eliminar</button></div></div>))}</div>
                                 </div>
                             </div>
                         </div>,
