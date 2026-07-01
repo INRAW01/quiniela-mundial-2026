@@ -389,17 +389,37 @@
                     const stagesEliminatoria = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"];
 
                     data.matches.forEach(match => {
-                        // Verificamos que el partido haya finalizado y tenga score
                         if (match.status === 'FINISHED' && match.score) {
-                            // REGLA 90 MINUTOS: Priorizamos regularTime. Si no está disponible, usamos fullTime como respaldo.
-                            const apiGolesL_raw = match.score.regularTime?.home ?? match.score.fullTime?.home;
-                            const apiGolesV_raw = match.score.regularTime?.away ?? match.score.fullTime?.away;
+                            let apiGolesL = null;
+                            let apiGolesV = null;
+                            
+                            const isDrawAt90 = match.score.duration === 'EXTRA_TIME' || match.score.duration === 'PENALTY_SHOOTOUT';
 
-                            if (apiGolesL_raw !== null && apiGolesL_raw !== undefined && apiGolesV_raw !== null && apiGolesV_raw !== undefined) { 
+                            // 1. Intentar usar regularTime explícito (el estándar de 90 min en APIs modernas)
+                            if (match.score.regularTime && typeof match.score.regularTime.home === 'number') {
+                                apiGolesL = match.score.regularTime.home;
+                                apiGolesV = match.score.regularTime.away;
+                            }
+                            // 2. Si hubo alargue/penales pero la API NO mandó regularTime
+                            else if (isDrawAt90 && match.score.fullTime && typeof match.score.fullTime.home === 'number') {
+                                // Regla de Oro: Si hubo alargue, los 90 min terminaron en EMPATE sí o sí.
+                                // Tomamos el marcador menor del fullTime para deducir el empate de los 90 min.
+                                // Ej: Si fullTime es 2-1 (en alargue), a los 90 min debió ser 1-1 (o 0-0). Matemáticamente tomamos el menor (1).
+                                const ftL = match.score.fullTime.home;
+                                const ftV = match.score.fullTime.away;
+                                const empateDeducido = Math.min(ftL, ftV);
+                                apiGolesL = empateDeducido;
+                                apiGolesV = empateDeducido;
+                            }
+                            // 3. Partido normal de 90 minutos
+                            else if (match.score.fullTime && typeof match.score.fullTime.home === 'number') {
+                                apiGolesL = match.score.fullTime.home;
+                                apiGolesV = match.score.fullTime.away;
+                            }
+
+                            if (apiGolesL !== null && apiGolesV !== null) { 
                                 const apiHomeTranslated = traducirNombre(match.homeTeam.name); 
                                 const apiAwayTranslated = traducirNombre(match.awayTeam.name);
-                                const apiGolesL = Number(apiGolesL_raw); 
-                                const apiGolesV = Number(apiGolesV_raw);
                                 
                                 const matchDirecto = partidosRef.current.find(p => {
                                     const dbLoc = normalizeName(p.local); const dbVis = normalizeName(p.visitante);
