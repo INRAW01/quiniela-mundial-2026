@@ -366,14 +366,13 @@
             const handleToggleVisibilidad = async (tabId, isChecked) => { if (!db) return; const nuevaVisibilidad = { ...visibilidad, [tabId]: isChecked }; setVisibilidad(nuevaVisibilidad); await db.collection('sistema').doc('configuracion').set({ visibilidad: nuevaVisibilidad }, { merge: true }); };
             const handleActualizarPremios = async () => { if (!db) return; await db.collection('sistema').doc('configuracion').set({ premios: inputPremios }, { merge: true }); alert("Premios actualizados en los rankings."); };
             
-            // --- NUEVO: BLOQUEO MANUAL ---
+            // --- BLOQUEO MANUAL ---
             const handleGuardarResultadoManual = async (partidoId) => { 
                 if (!db) return; 
                 const inputL = document.getElementById(`golesL_${partidoId}`).value; 
                 const inputV = document.getElementById(`golesV_${partidoId}`).value; 
                 if(inputL === '' || inputV === '') return; 
                 
-                // Se agrega "bloqueo_manual: true" para que la API no sobreescriba esto
                 await db.collection('partidos').doc(partidoId).update({ 
                     golesL_real: Number(inputL), 
                     golesV_real: Number(inputV), 
@@ -413,59 +412,58 @@
             const handleUnlockUser = async (userId, userName) => { if (!db) return; if(confirm(`¿Desbloquear la quiniela de "${userName}"?`)) { await db.collection('usuarios').doc(userId).update({ locked: false }); } };
 
             const handleSyncAPI = async (silencioso = false) => {
-                if (!db) return; if (!silencioso) setIsSyncing(true);
+                if (!db) return; 
+                if (!silencioso) setIsSyncing(true);
+                
                 try {
-                    const res = await fetch("/api/sync-matches"); const data = await res.json(); if (!data.matches) return;
-                    const batch = db.batch(); let actualizados = 0; let insertadosFase2 = 0;
+                    const res = await fetch("/api/sync-matches"); 
+                    const data = await res.json(); 
+                    if (!data.matches) return;
+                    
+                    const batch = db.batch(); 
+                    let actualizados = 0; 
+                    let insertadosFase2 = 0;
                     const stagesEliminatoria = ["LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"];
 
                     data.matches.forEach(match => {
                         if (match.status === 'FINISHED' && match.score) {
-                            let apiGolesL = null;
-                            let apiGolesV = null;
+                            const apiHomeTranslated = traducirNombre(match.homeTeam.name); 
+                            const apiAwayTranslated = traducirNombre(match.awayTeam.name);
                             
-                            const isDrawAt90 = match.score.duration === 'EXTRA_TIME' || match.score.duration === 'PENALTY_SHOOTOUT';
+                            const matchDirecto = partidosRef.current.find(p => {
+                                const dbLoc = normalizeName(p.local); 
+                                const dbVis = normalizeName(p.visitante);
+                                return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || 
+                                       (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
+                            });
 
-                            // 1. Usar el regularTime si la API lo manda correctamente
-                            if (match.score.regularTime && typeof match.score.regularTime.home === 'number') {
-                                apiGolesL = match.score.regularTime.home;
-                                apiGolesV = match.score.regularTime.away;
-                            }
-                            // 2. Si hubo alargue pero NO hay regularTime explícito, forzamos null 
-                            // para evitar guardar un marcador erroneo y mejor dejar que el admin lo bloquee manualmente.
-                            else if (isDrawAt90) {
-                                apiGolesL = null;
-                                apiGolesV = null;
-                            }
-                            // 3. Partido normal de 90 minutos
-                            else if (match.score.fullTime && typeof match.score.fullTime.home === 'number') {
-                                apiGolesL = match.score.fullTime.home;
-                                apiGolesV = match.score.fullTime.away;
-                            }
+                            if (matchDirecto) {
+                                // --- PROTECCIÓN MÁXIMA ---
+                                if (matchDirecto.bloqueo_manual) {
+                                    console.log(`[SYNC] Partido ${matchDirecto.local} VS ${matchDirecto.visitante} bloqueado. Saltando actualización.`);
+                                    return; // Aborta procesamiento para este partido
+                                }
 
-                            if (apiGolesL !== null && apiGolesV !== null) { 
-                                const apiHomeTranslated = traducirNombre(match.homeTeam.name); 
-                                const apiAwayTranslated = traducirNombre(match.awayTeam.name);
-                                
-                                const matchDirecto = partidosRef.current.find(p => {
-                                    const dbLoc = normalizeName(p.local); const dbVis = normalizeName(p.visitante);
-                                    return (dbLoc === apiHomeTranslated && dbVis === apiAwayTranslated) || (dbLoc === apiAwayTranslated && dbVis === apiHomeTranslated);
-                                });
-                                
-                                if (matchDirecto) {
-                                    // --- MAGIA: SI EL ADMIN LO BLOQUEÓ, LA API LO SALTA ---
-                                    if (matchDirecto.bloqueo_manual) {
-                                        return; // Equivale a 'continue' en el forEach
+                                // --- EXTRACCIÓN ESTRICTA ---
+                                if (match.score.regularTime && typeof match.score.regularTime.home === 'number') {
+                                    let apiGolesL = match.score.regularTime.home;
+                                    let apiGolesV = match.score.regularTime.away;
+
+                                    if (normalizeName(matchDirecto.local) === apiAwayTranslated) { 
+                                        let tmp = apiGolesL; apiGolesL = apiGolesV; apiGolesV = tmp; 
                                     }
-
-                                    let finalGolesL = apiGolesL; let finalGolesV = apiGolesV;
                                     
-                                    if (normalizeName(matchDirecto.local) === apiAwayTranslated) { finalGolesL = apiGolesV; finalGolesV = apiGolesL; }
-                                    
-                                    if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== finalGolesL || matchDirecto.golesV_real !== finalGolesV) {
-                                        batch.update(db.collection('partidos').doc(matchDirecto.id), { golesL_real: finalGolesL, golesV_real: finalGolesV, estado: 'finalizado' }); actualizados++;
+                                    if (matchDirecto.estado === 'pendiente' || matchDirecto.golesL_real !== apiGolesL || matchDirecto.golesV_real !== apiGolesV) {
+                                        batch.update(db.collection('partidos').doc(matchDirecto.id), { 
+                                            golesL_real: apiGolesL, 
+                                            golesV_real: apiGolesV, 
+                                            estado: 'finalizado' 
+                                        }); 
+                                        actualizados++;
                                     }
-                                } 
+                                } else {
+                                    console.log(`[SYNC] Partido ${matchDirecto.local} sin regularTime en API. Saltando.`);
+                                }
                             }
                         }
 
@@ -474,10 +472,17 @@
                             const existe = partidosRef.current.find(p => p.id === refId);
                             if (!existe) {
                                 let faseNombre = match.stage;
-                                if(faseNombre === "LAST_32") faseNombre = "Dieciseisavos de Final"; if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
-                                if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; if(faseNombre === "FINAL") faseNombre = "Gran Final";
-                                const dateObj = new Date(match.utcDate); const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-                                const pLocal = traducirNombre(match.homeTeam.name) || "Por Definir"; const pVisitante = traducirNombre(match.awayTeam.name) || "Por Definir";
+                                if(faseNombre === "LAST_32") faseNombre = "Dieciseisavos de Final"; 
+                                if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
+                                if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; 
+                                if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; 
+                                if(faseNombre === "FINAL") faseNombre = "Gran Final";
+                                
+                                const dateObj = new Date(match.utcDate); 
+                                const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                                const pLocal = traducirNombre(match.homeTeam.name) || "Por Definir"; 
+                                const pVisitante = traducirNombre(match.awayTeam.name) || "Por Definir";
+                                
                                 batch.set(db.collection('partidos').doc(refId), {
                                     grupo: faseNombre, local: pLocal, visitante: pVisitante, 
                                     fecha: `${dateObj.getDate()} ${meses[dateObj.getMonth()]} ${dateObj.getFullYear()}`, 
@@ -491,13 +496,15 @@
                     
                     if (actualizados > 0 || insertadosFase2 > 0) {
                         await batch.commit();
-                        await db.collection('sistema').doc('configuracion').update({ log_sync: `Última sync: ${new Date().toLocaleTimeString()} - ${actualizados} act / ${insertadosFase2} nuevas`});
-                        if(!silencioso) alert(`Éxito. Se actualizaron ${actualizados} partidos y se insertaron ${insertadosFase2} llaves nuevas.`);
+                        await db.collection('sistema').doc('configuracion').update({ 
+                            log_sync: `Última sync: ${new Date().toLocaleTimeString()} - ${actualizados} act / ${insertadosFase2} nuevas`
+                        });
+                        if(!silencioso) alert(`Sincronización completada: ${actualizados} partidos actualizados.`);
                     } else { 
-                        if(!silencioso) alert("La API no detectó partidos desprotegidos nuevos ni llaves pendientes."); 
+                        if(!silencioso) alert("No se encontraron actualizaciones válidas (90min) sin bloquear."); 
                     }
                 } catch (error) { 
-                    console.error(error); 
+                    console.error("Error en sync:", error); 
                 } finally { 
                     if (!silencioso) setIsSyncing(false); 
                 }
