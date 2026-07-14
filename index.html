@@ -223,22 +223,36 @@
                 if (!partidos || partidos.length === 0) return 0;
                 let aciertos = 0;
                 const picks = jugador.picks || {};
+                
                 partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).forEach(p => {
                     if (p.estado === 'finalizado') {
                         let suPick = picks[p.id];
                         if (suPick) {
-                            let gl = Number(p.golesL_real); let gv = Number(p.golesV_real);
+                            let gl = Number(p.golesL_real); 
+                            let gv = Number(p.golesV_real);
                             let resultadoReal = gl > gv ? 'local' : (gl < gv ? 'visitante' : 'empate');
                             
                             let isSemi = p.grupo === 'Semifinales';
+                            let isTercerLugar = p.grupo === 'Tercer Lugar';
                             let isFinal = p.grupo === 'Gran Final';
-                            let ptsMax = isFinal ? 3 : (isSemi ? 2 : 1);
+                            let isEspecial = isSemi || isTercerLugar || isFinal;
                             
                             let resPick = typeof suPick === 'object' ? suPick.res : suPick;
                             let esExacto = typeof suPick === 'object' && Number(suPick.gl) === gl && Number(suPick.gv) === gv;
 
-                            if (esExacto) aciertos += ptsMax;
-                            else if (resPick === resultadoReal) aciertos += 1;
+                            if (isEspecial) {
+                                let ptsMax = isFinal ? 3 : 2; // Final da 3 pts si es exacto, Semi/Tercer dan 2 pts.
+                                if (esExacto) {
+                                    aciertos += ptsMax;
+                                } else if (resPick === resultadoReal) {
+                                    aciertos += 1; // 1 punto si solo le atinó al ganador/empate
+                                }
+                            } else {
+                                // Partidos normales de eliminatoria
+                                if (resPick === resultadoReal) {
+                                    aciertos += 1;
+                                }
+                            }
                         }
                     }
                 });
@@ -606,6 +620,8 @@
             const partidosGrupos = partidos.filter(p => String(p.grupo).toLowerCase().includes('grupo'));
             const partidosEliminatoria = partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo'));
             const gruposNombres = [...new Set(partidosGrupos.map(p => p.grupo))].sort();
+            
+            // CAMBIO: Asegurar que Tercer Lugar esté en el orden correcto
             const eliminatoriasNombres = ['Dieciseisavos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinales', 'Tercer Lugar', 'Gran Final'];
 
             const rankingFase1 = Object.values(predicciones).filter(j => j.locked).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase1(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
@@ -623,6 +639,7 @@
             };
             const pendingKnockout = partidosEliminatoria.filter(p => p.estado !== 'finalizado' && getMatchTimestamp(p.fecha, p.hora) > currentTime).sort((a,b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
             const heroMatch = pendingKnockout.length > 0 ? pendingKnockout[0] : null;
+            const heroMatchIsEspecial = heroMatch && (heroMatch.grupo === 'Semifinales' || heroMatch.grupo === 'Tercer Lugar' || heroMatch.grupo === 'Gran Final');
 
             const construirFilaSpy = (partido, esAncladoHoy = false) => {
                 const suPickRaw = spyUser.data.picks && spyUser.data.picks[partido.id]; 
@@ -743,15 +760,18 @@
                                                     <button onClick={() => guardarTendencia(heroMatch.id, 'visitante')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'visitante' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Visita</button>
                                                 </div>
 
-                                                {/* CAMBIO 1: OPCIÓN DE MARCADOR EXACTO DENTRO DE LA VENTANA CON CONTRARRELOJ */}
-                                                <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4 w-full max-w-sm relative z-10">
-                                                    <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> Opcional: Acierta el Marcador Exacto</p>
-                                                    <div className="flex gap-2 mb-3">
-                                                        <input type="number" min="0" placeholder="0" id={`p_loc_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gl : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
-                                                        <input type="number" min="0" placeholder="0" id={`p_vis_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gv : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                {/* INGRESO DE MARCADOR EXACTO (HERO MATCH) */}
+                                                {heroMatchIsEspecial && (
+                                                    <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4 w-full max-w-sm relative z-10">
+                                                        <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> INGRESA EL MARCADOR EXACTO</p>
+                                                        <div className="flex gap-2 mb-3">
+                                                            <input type="number" min="0" placeholder="0" id={`p_loc_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gl : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                            <input type="number" min="0" placeholder="0" id={`p_vis_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gv : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                        </div>
+                                                        <button onClick={() => { const gl = document.getElementById(`p_loc_hero_${heroMatch.id}`).value; const gv = document.getElementById(`p_vis_hero_${heroMatch.id}`).value; if(gl !== '' && gv !== '') guardarMarcadorExacto(heroMatch.id, gl, gv); }} disabled={isHeroLocked} className="w-full bg-[#00623B] border border-[#00623B] text-white font-black text-[10px] uppercase tracking-widest py-2 rounded-lg active:scale-95 transition-transform hover:bg-[#004e2f]">Guardar Marcador (Máx {heroMatch.grupo === 'Gran Final' ? '3' : '2'} Pts)</button>
+                                                        <p className="text-[9px] text-white/50 text-center mt-2 font-bold leading-tight">Si sólo aciertas el ganador o empate te llevas 1 punto.</p>
                                                     </div>
-                                                    <button onClick={() => { const gl = document.getElementById(`p_loc_hero_${heroMatch.id}`).value; const gv = document.getElementById(`p_vis_hero_${heroMatch.id}`).value; if(gl !== '' && gv !== '') guardarMarcadorExacto(heroMatch.id, gl, gv); }} disabled={isHeroLocked} className="w-full bg-[#00623B] border border-[#00623B] text-white font-black text-[10px] uppercase tracking-widest py-2 rounded-lg active:scale-95 transition-transform hover:bg-[#004e2f]">Guardar Marcador Exacto</button>
-                                                </div>
+                                                )}
                                                 
                                                 <p className="text-[#C5A97D]/70 text-xs font-bold uppercase tracking-widest mt-5 mb-2">{heroMatch.fecha} • {heroMatch.hora} Hrs</p>
                                             </div>
@@ -770,8 +790,7 @@
                                     eliminatoriasNombres.map(grupo => {
                                         const partidosDelGrupo = partidosEliminatoria.filter(p => p.grupo === grupo).sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
                                         if(partidosDelGrupo.length === 0) return null;
-                                        // CAMBIO 2: Incluir "Tercer Lugar" como partido especial con opción a marcador exacto
-                                        const isEspecial = grupo === 'Semifinales' || grupo === 'Gran Final' || grupo === 'Tercer Lugar';
+                                        const isEspecial = grupo === 'Semifinales' || grupo === 'Tercer Lugar' || grupo === 'Gran Final';
 
                                         return (
                                             <div key={grupo} className="mb-12">
@@ -812,7 +831,7 @@
 
                                                                 {isEspecial && (
                                                                     <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4">
-                                                                        <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> Opcional: Acierta el Marcador Exacto</p>
+                                                                        <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> INGRESA EL MARCADOR EXACTO</p>
                                                                         <div className="flex gap-2 mb-3">
                                                                             <input type="number" min="0" placeholder="0" id={`p_loc_${partido.id}`} defaultValue={typeof miPickRaw === 'object' ? miPickRaw.gl : ''} disabled={bloqueado} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
                                                                             <input type="number" min="0" placeholder="0" id={`p_vis_${partido.id}`} defaultValue={typeof miPickRaw === 'object' ? miPickRaw.gv : ''} disabled={bloqueado} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
@@ -1008,6 +1027,15 @@
                                                 </div>
                                             ))}
                                         </div>
+                                        <button onClick={async () => {
+                                            if(!db) return;
+                                            const existe = partidosRef.current.find(p => p.grupo === 'Tercer Lugar');
+                                            if(existe) return alert('El partido de Tercer Lugar ya existe.');
+                                            await db.collection('partidos').doc('elim_manual_tercer_lugar').set({
+                                                grupo: "Tercer Lugar", local: "Por Definir", visitante: "Por Definir", fecha: "18 Jul 2026", hora: "14:00", sede: "Por definir", estado: 'pendiente', golesL_real: null, golesV_real: null
+                                            });
+                                            alert("Llave de Tercer Lugar creada exitosamente.");
+                                        }} className="w-full bg-white/10 text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-colors hover:bg-white/20 mt-4 border border-white/20">Fuerza Crear: Tercer Lugar</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
                                         <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Resultados Manuales y Penales</p>
