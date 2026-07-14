@@ -366,7 +366,6 @@
             const handleToggleVisibilidad = async (tabId, isChecked) => { if (!db) return; const nuevaVisibilidad = { ...visibilidad, [tabId]: isChecked }; setVisibilidad(nuevaVisibilidad); await db.collection('sistema').doc('configuracion').set({ visibilidad: nuevaVisibilidad }, { merge: true }); };
             const handleActualizarPremios = async () => { if (!db) return; await db.collection('sistema').doc('configuracion').set({ premios: inputPremios }, { merge: true }); alert("Premios actualizados en los rankings."); };
             
-            // --- BLOQUEO MANUAL ---
             const handleGuardarResultadoManual = async (partidoId) => { 
                 if (!db) return; 
                 const inputL = document.getElementById(`golesL_${partidoId}`).value; 
@@ -438,13 +437,11 @@
                             });
 
                             if (matchDirecto) {
-                                // --- PROTECCIÓN MÁXIMA ---
                                 if (matchDirecto.bloqueo_manual) {
                                     console.log(`[SYNC] Partido ${matchDirecto.local} VS ${matchDirecto.visitante} bloqueado. Saltando actualización.`);
-                                    return; // Aborta procesamiento para este partido
+                                    return; 
                                 }
 
-                                // --- EXTRACCIÓN ESTRICTA ---
                                 if (match.score.regularTime && typeof match.score.regularTime.home === 'number') {
                                     let apiGolesL = match.score.regularTime.home;
                                     let apiGolesV = match.score.regularTime.away;
@@ -476,6 +473,7 @@
                                 if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
                                 if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; 
                                 if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; 
+                                if(faseNombre === "THIRD_PLACE") faseNombre = "Tercer Lugar"; 
                                 if(faseNombre === "FINAL") faseNombre = "Gran Final";
                                 
                                 const dateObj = new Date(match.utcDate); 
@@ -632,7 +630,6 @@
                 const pickText = typeof suPickRaw === 'object' ? `${suPickRaw.gl} - ${suPickRaw.gv} (${suPick})` : (suPick === 'local' ? partido.local : suPick === 'visitante' ? partido.visitante : suPick === 'empate' ? 'Empate' : 'Pendiente');
                 
                 let esCorrecto = null;
-                
                 const isMatchStarted = currentTime >= getMatchTimestamp(partido.fecha, partido.hora);
                 const pickVisible = isMatchStarted || partido.estado === 'finalizado' || profile.id === spyUser.data.id; 
                 
@@ -745,6 +742,16 @@
                                                     <button onClick={() => guardarTendencia(heroMatch.id, 'empate')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'empate' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Empate</button>
                                                     <button onClick={() => guardarTendencia(heroMatch.id, 'visitante')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'visitante' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Visita</button>
                                                 </div>
+
+                                                {/* CAMBIO 1: OPCIÓN DE MARCADOR EXACTO DENTRO DE LA VENTANA CON CONTRARRELOJ */}
+                                                <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4 w-full max-w-sm relative z-10">
+                                                    <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> Opcional: Acierta el Marcador Exacto</p>
+                                                    <div className="flex gap-2 mb-3">
+                                                        <input type="number" min="0" placeholder="0" id={`p_loc_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gl : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                        <input type="number" min="0" placeholder="0" id={`p_vis_hero_${heroMatch.id}`} defaultValue={typeof heroPickRaw === 'object' ? heroPickRaw.gv : ''} disabled={isHeroLocked} className="w-1/2 bg-black/50 border border-white/10 focus:border-[#C5A97D] text-white text-center rounded-lg py-2 font-black text-xl outline-none transition-colors" />
+                                                    </div>
+                                                    <button onClick={() => { const gl = document.getElementById(`p_loc_hero_${heroMatch.id}`).value; const gv = document.getElementById(`p_vis_hero_${heroMatch.id}`).value; if(gl !== '' && gv !== '') guardarMarcadorExacto(heroMatch.id, gl, gv); }} disabled={isHeroLocked} className="w-full bg-[#00623B] border border-[#00623B] text-white font-black text-[10px] uppercase tracking-widest py-2 rounded-lg active:scale-95 transition-transform hover:bg-[#004e2f]">Guardar Marcador Exacto</button>
+                                                </div>
                                                 
                                                 <p className="text-[#C5A97D]/70 text-xs font-bold uppercase tracking-widest mt-5 mb-2">{heroMatch.fecha} • {heroMatch.hora} Hrs</p>
                                             </div>
@@ -763,7 +770,8 @@
                                     eliminatoriasNombres.map(grupo => {
                                         const partidosDelGrupo = partidosEliminatoria.filter(p => p.grupo === grupo).sort((a, b) => getMatchTimestamp(a.fecha, a.hora) - getMatchTimestamp(b.fecha, b.hora));
                                         if(partidosDelGrupo.length === 0) return null;
-                                        const isEspecial = grupo === 'Semifinales' || grupo === 'Gran Final';
+                                        // CAMBIO 2: Incluir "Tercer Lugar" como partido especial con opción a marcador exacto
+                                        const isEspecial = grupo === 'Semifinales' || grupo === 'Gran Final' || grupo === 'Tercer Lugar';
 
                                         return (
                                             <div key={grupo} className="mb-12">
