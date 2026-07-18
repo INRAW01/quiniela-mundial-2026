@@ -241,14 +241,13 @@
                             let esExacto = typeof suPick === 'object' && Number(suPick.gl) === gl && Number(suPick.gv) === gv;
 
                             if (isEspecial) {
-                                let ptsMax = isFinal ? 3 : 2; // Final da 3 pts si es exacto, Semi/Tercer dan 2 pts.
+                                let ptsMax = isFinal ? 3 : 2;
                                 if (esExacto) {
                                     aciertos += ptsMax;
                                 } else if (resPick === resultadoReal) {
-                                    aciertos += 1; // 1 punto si solo le atinó al ganador/empate
+                                    aciertos += 1;
                                 }
                             } else {
-                                // Partidos normales de eliminatoria
                                 if (resPick === resultadoReal) {
                                     aciertos += 1;
                                 }
@@ -403,13 +402,34 @@
                 alert("Protección retirada. La API actualizará este partido en la siguiente lectura.");
             };
 
-            const handleAsignarLlave = async (partidoId) => {
+            // NUEVA FUNCIÓN PARA EDITAR FECHA, HORA Y NOMBRES
+            const handleActualizarPartido = async (partidoId) => {
                 if (!db) return;
                 const loc = document.getElementById(`admin_loc_${partidoId}`).value;
                 const vis = document.getElementById(`admin_vis_${partidoId}`).value;
-                if(!loc || !vis) return;
-                await db.collection('partidos').doc(partidoId).update({ local: loc, visitante: vis });
-                alert("Llave actualizada");
+                const fecha = document.getElementById(`admin_fecha_${partidoId}`).value;
+                const hora = document.getElementById(`admin_hora_${partidoId}`).value;
+                
+                if(!loc || !vis || !fecha || !hora) {
+                    return alert("Por favor, llena todos los campos de este partido.");
+                }
+                
+                await db.collection('partidos').doc(partidoId).update({ 
+                    local: loc, 
+                    visitante: vis,
+                    fecha: fecha,
+                    hora: hora
+                });
+                alert("Partido actualizado (Fechas, Horas y Nombres).");
+            };
+
+            // NUEVA FUNCIÓN PARA BORRAR DUPLICADOS
+            const handleDeletePartido = async (partidoId) => {
+                if (!db) return;
+                if(confirm(`¿Estás completamente seguro de ELIMINAR este partido permanentemente? Esto no se puede deshacer.`)) {
+                    await db.collection('partidos').doc(partidoId).delete();
+                    alert("Partido eliminado.");
+                }
             };
 
             const handleMarcarPenales = async (partidoId, avanza) => {
@@ -621,7 +641,6 @@
             const partidosEliminatoria = partidos.filter(p => !String(p.grupo).toLowerCase().includes('grupo'));
             const gruposNombres = [...new Set(partidosGrupos.map(p => p.grupo))].sort();
             
-            // CAMBIO: Asegurar que Tercer Lugar esté en el orden correcto
             const eliminatoriasNombres = ['Dieciseisavos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinales', 'Tercer Lugar', 'Gran Final'];
 
             const rankingFase1 = Object.values(predicciones).filter(j => j.locked).map(jugador => ({ ...jugador, puntosCalculados: calcularPuntosFase1(jugador) })).sort((a, b) => b.puntosCalculados - a.puntosCalculados);
@@ -760,7 +779,6 @@
                                                     <button onClick={() => guardarTendencia(heroMatch.id, 'visitante')} disabled={isHeroLocked} className={`flex-1 py-3 rounded-xl border font-black uppercase text-xs transition-all ${heroPick === 'visitante' ? 'bg-[#C5A97D] text-[#53121F] border-transparent casino-glow scale-[1.02]' : 'bg-black/40 border-white/10 text-white/80 hover:bg-white/10'}`}>Visita</button>
                                                 </div>
 
-                                                {/* INGRESO DE MARCADOR EXACTO (HERO MATCH) */}
                                                 {heroMatchIsEspecial && (
                                                     <div className="mt-5 bg-black/40 border border-[#C5A97D]/20 rounded-xl p-4 w-full max-w-sm relative z-10">
                                                         <p className="text-[10px] font-black text-white uppercase text-center mb-3 tracking-wider flex items-center justify-center gap-1"><Icon name="target" size={12} className="text-[#C5A97D]"/> INGRESA EL MARCADOR EXACTO</p>
@@ -1012,25 +1030,34 @@
                                         <button onClick={handleActualizarPremios} className="w-full bg-[#C5A97D] text-[#53121F] font-black py-2.5 rounded-xl text-xs uppercase tracking-widest active:scale-95 transition-transform">Guardar Premios</button>
                                     </div>
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5"><button onClick={toggleModoEspia} className="w-full bg-[#00623B] text-white font-black py-3 rounded-xl">{modoEspiaActivo ? 'BLOQUEAR ESPÍA' : 'HABILITAR ESPÍA'}</button></div>
+                                    
                                     <div className="bg-black/30 p-5 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Asignación Manual de Llaves</p>
+                                        <p className="text-[10px] text-[#C5A97D] mb-3 font-black uppercase tracking-widest">Editor de Partidos (Nombres, Fechas y Borrar)</p>
                                         <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2 space-y-4 touch-pan overscroll-contain">
                                             {partidosOrdenadosAdmin.filter(p => !String(p.grupo).toLowerCase().includes('grupo')).map(p => (
-                                                <div key={'admin-llave-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10">
-                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider flex justify-between"><span>{p.fecha} - {p.hora}</span><span>{p.grupo}</span></div>
-                                                    <div className="flex items-center gap-2">
-                                                        <input type="text" id={`admin_loc_${p.id}`} defaultValue={p.local} placeholder="Local" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs" />
-                                                        <span className="text-[10px] italic opacity-50">VS</span>
-                                                        <input type="text" id={`admin_vis_${p.id}`} defaultValue={p.visitante} placeholder="Visita" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs" />
+                                                <div key={'admin-llave-' + p.id} className="flex flex-col gap-2 bg-black/40 p-3 rounded-xl border border-white/10 relative">
+                                                    <button onClick={() => handleDeletePartido(p.id)} className="absolute top-2 right-2 text-red-500/50 hover:text-red-500 transition-colors" title="Borrar partido permanente"><Icon name="x" size={16} /></button>
+                                                    
+                                                    <div className="text-[8px] text-[#C5A97D] font-bold uppercase tracking-wider mr-6 mb-1">{p.grupo}</div>
+                                                    
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <input type="text" id={`admin_fecha_${p.id}`} defaultValue={p.fecha} placeholder="Ej: 18 Jul 2026" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:border-[#C5A97D] outline-none" />
+                                                        <input type="time" id={`admin_hora_${p.id}`} defaultValue={p.hora} className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:border-[#C5A97D] outline-none" />
                                                     </div>
-                                                    <button onClick={() => handleAsignarLlave(p.id)} className="w-full bg-[#D31145]/80 text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-colors hover:bg-[#D31145]">Cargar Nombres Reales</button>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <input type="text" id={`admin_loc_${p.id}`} defaultValue={p.local} placeholder="Local" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:border-[#C5A97D] outline-none" />
+                                                        <span className="text-[10px] italic opacity-50">VS</span>
+                                                        <input type="text" id={`admin_vis_${p.id}`} defaultValue={p.visitante} placeholder="Visita" className="w-1/2 bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:border-[#C5A97D] outline-none" />
+                                                    </div>
+                                                    <button onClick={() => handleActualizarPartido(p.id)} className="w-full bg-[#D31145]/80 text-white px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-colors hover:bg-[#D31145]">Actualizar Datos</button>
                                                 </div>
                                             ))}
                                         </div>
                                         <button onClick={async () => {
                                             if(!db) return;
                                             const existe = partidosRef.current.find(p => p.grupo === 'Tercer Lugar');
-                                            if(existe) return alert('El partido de Tercer Lugar ya existe.');
+                                            if(existe) return alert('El partido de Tercer Lugar ya existe. Si quieres crear otro, borra el actual primero.');
                                             await db.collection('partidos').doc('elim_manual_tercer_lugar').set({
                                                 grupo: "Tercer Lugar", local: "Por Definir", visitante: "Por Definir", fecha: "18 Jul 2026", hora: "14:00", sede: "Por definir", estado: 'pendiente', golesL_real: null, golesV_real: null
                                             });
