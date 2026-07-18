@@ -402,7 +402,6 @@
                 alert("Protección retirada. La API actualizará este partido en la siguiente lectura.");
             };
 
-            // NUEVA FUNCIÓN PARA EDITAR FECHA, HORA Y NOMBRES
             const handleActualizarPartido = async (partidoId) => {
                 if (!db) return;
                 const loc = document.getElementById(`admin_loc_${partidoId}`).value;
@@ -423,7 +422,6 @@
                 alert("Partido actualizado (Fechas, Horas y Nombres).");
             };
 
-            // NUEVA FUNCIÓN PARA BORRAR DUPLICADOS
             const handleDeletePartido = async (partidoId) => {
                 if (!db) return;
                 if(confirm(`¿Estás completamente seguro de ELIMINAR este partido permanentemente? Esto no se puede deshacer.`)) {
@@ -500,16 +498,22 @@
 
                         if (stagesEliminatoria.includes(match.stage)) {
                             const refId = `elim_${match.id}`;
-                            const existe = partidosRef.current.find(p => p.id === refId);
+                            let faseNombre = match.stage;
+                            if(faseNombre === "LAST_32") faseNombre = "Dieciseisavos de Final"; 
+                            if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
+                            if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; 
+                            if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; 
+                            if(faseNombre === "THIRD_PLACE") faseNombre = "Tercer Lugar"; 
+                            if(faseNombre === "FINAL") faseNombre = "Gran Final";
+
+                            let existe = partidosRef.current.find(p => p.id === refId);
+                            
+                            // BLOQUEO ANTI-DUPLICADOS: Si ya existe un partido "Tercer Lugar" o "Gran Final" creado manual o por otra vía, no crear otro.
+                            if (!existe && (faseNombre === "Tercer Lugar" || faseNombre === "Gran Final")) {
+                                existe = partidosRef.current.find(p => p.grupo === faseNombre);
+                            }
+
                             if (!existe) {
-                                let faseNombre = match.stage;
-                                if(faseNombre === "LAST_32") faseNombre = "Dieciseisavos de Final"; 
-                                if(faseNombre === "LAST_16") faseNombre = "Octavos de Final";
-                                if(faseNombre === "QUARTER_FINALS") faseNombre = "Cuartos de Final"; 
-                                if(faseNombre === "SEMI_FINALS") faseNombre = "Semifinales"; 
-                                if(faseNombre === "THIRD_PLACE") faseNombre = "Tercer Lugar"; 
-                                if(faseNombre === "FINAL") faseNombre = "Gran Final";
-                                
                                 const dateObj = new Date(match.utcDate); 
                                 const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
                                 const pLocal = traducirNombre(match.homeTeam.name) || "Por Definir"; 
